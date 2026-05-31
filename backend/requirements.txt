@@ -17,6 +17,7 @@ PyJWT==2.10.1
 bcrypt==4.2.1
 # Google SSO — verifies Google ID tokens server-side
 google-auth==2.37.0
+requests==2.32.3
 
 # Tests (dev) — kept here so `pip install -r requirements.txt` sets you up to run them
 pytest==8.3.4
