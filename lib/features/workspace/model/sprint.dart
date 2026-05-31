@@ -1,3 +1,4 @@
+import 'package:smart_sprint/features/workspace/data/json_mappers.dart';
 import 'enums.dart';
 
 class Sprint {
@@ -18,6 +19,18 @@ class Sprint {
     required this.endDate,
     required this.status,
   });
+
+  factory Sprint.fromJson(Map<String, dynamic> json) {
+    return Sprint(
+      id: json['id'] as String,
+      name: json['name'] as String? ?? '',
+      goal: json['goal'] as String? ?? '',
+      projectId: json['projectId'] as String,
+      startDate: dateOrNow(json['startDate'] as String?),
+      endDate: dateOrNow(json['endDate'] as String?),
+      status: sprintStatusFromName(json['status'] as String?),
+    );
+  }
 
   int get totalDays => endDate.difference(startDate).inDays.clamp(1, 9999);
 

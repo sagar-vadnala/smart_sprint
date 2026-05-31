@@ -1,3 +1,4 @@
+import 'package:smart_sprint/features/workspace/data/json_mappers.dart';
 import 'enums.dart';
 
 /// A subtask behaves like a mini task: it has a status, can be assigned, and
@@ -23,6 +24,25 @@ class SubTask {
     this.dueDate,
     this.subtasks = const [],
   });
+
+  factory SubTask.fromJson(Map<String, dynamic> json) {
+    return SubTask(
+      id: json['id'] as String,
+      title: json['title'] as String? ?? '',
+      description: json['description'] as String? ?? '',
+      status: taskStatusFromName(json['status'] as String?),
+      assigneeIds:
+          (json['assigneeIds'] as List?)?.map((e) => e as String).toList() ??
+          [],
+      priority: taskPriorityFromNameOrNull(json['priority'] as String?),
+      dueDate: dateFromIso(json['dueDate'] as String?),
+      subtasks:
+          (json['subtasks'] as List?)
+              ?.map((e) => SubTask.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          const [],
+    );
+  }
 
   bool get isDone => status == TaskStatus.done;
 

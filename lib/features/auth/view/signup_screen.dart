@@ -6,6 +6,8 @@ import 'package:smart_sprint/core/theme/app_colors.dart';
 import 'package:smart_sprint/features/auth/bloc/auth_bloc.dart';
 import 'package:smart_sprint/features/auth/bloc/auth_event.dart';
 import 'package:smart_sprint/features/auth/bloc/auth_state.dart';
+import 'package:smart_sprint/features/workspace/bloc/workspace_bloc.dart';
+import 'package:smart_sprint/features/workspace/bloc/workspace_event.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -51,6 +53,7 @@ class _SignupScreenState extends State<SignupScreen> {
     return BlocListener<AuthBloc, AuthState>(
       listener: (context, state) {
         if (state is AuthSuccess) {
+          context.read<WorkspaceBloc>().add(WorkspaceLoaded());
           context.go('/home');
         } else if (state is AuthFailure) {
           ScaffoldMessenger.of(context).showSnackBar(

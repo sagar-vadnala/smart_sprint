@@ -1,3 +1,4 @@
+import 'package:smart_sprint/features/workspace/data/json_mappers.dart';
 import 'enums.dart';
 
 class Activity {
@@ -22,4 +23,18 @@ class Activity {
     this.body,
     required this.timestamp,
   });
+
+  factory Activity.fromJson(Map<String, dynamic> json) {
+    return Activity(
+      id: json['id'] as String,
+      kind: activityKindFromName(json['kind'] as String?),
+      actorId: json['actorId'] as String? ?? '',
+      text: json['text'] as String? ?? '',
+      taskTitle: json['taskTitle'] as String?,
+      projectId: json['projectId'] as String?,
+      taskId: json['taskId'] as String?,
+      body: json['body'] as String?,
+      timestamp: dateOrNow(json['timestamp'] as String?),
+    );
+  }
 }

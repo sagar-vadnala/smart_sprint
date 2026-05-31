@@ -1,3 +1,4 @@
+import 'package:smart_sprint/features/workspace/data/json_mappers.dart';
 import 'enums.dart';
 import 'subtask.dart';
 
@@ -27,6 +28,28 @@ class Task {
     required this.createdAt,
     this.subtasks = const [],
   });
+
+  factory Task.fromJson(Map<String, dynamic> json) {
+    return Task(
+      id: json['id'] as String,
+      title: json['title'] as String? ?? '',
+      description: json['description'] as String? ?? '',
+      projectId: json['projectId'] as String,
+      sprintId: json['sprintId'] as String?,
+      status: taskStatusFromName(json['status'] as String?),
+      priority: taskPriorityFromName(json['priority'] as String?),
+      assigneeIds:
+          (json['assigneeIds'] as List?)?.map((e) => e as String).toList() ??
+          [],
+      dueDate: dateFromIso(json['dueDate'] as String?),
+      createdAt: dateOrNow(json['createdAt'] as String?),
+      subtasks:
+          (json['subtasks'] as List?)
+              ?.map((e) => SubTask.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          const [],
+    );
+  }
 
   bool get isDone => status == TaskStatus.done;
 

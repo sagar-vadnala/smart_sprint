@@ -46,7 +46,15 @@ def init_db() -> None:
     Simple approach for a learning project. When the schema starts changing in
     production, graduate to Alembic migrations instead of create_all.
     """
-    # Import models so they're registered on Base.metadata before create_all.
-    from app.models import user  # noqa: F401
+    # Import every model module so each table is registered on Base.metadata
+    # before create_all runs.
+    from app.models import (  # noqa: F401
+        user,
+        organization,
+        workspace,
+        sprint,
+        task,
+        engagement,
+    )
 
     Base.metadata.create_all(bind=engine)

@@ -6,6 +6,8 @@ import 'package:smart_sprint/core/theme/app_colors.dart';
 import 'package:smart_sprint/features/auth/bloc/auth_bloc.dart';
 import 'package:smart_sprint/features/auth/bloc/auth_event.dart';
 import 'package:smart_sprint/features/auth/bloc/auth_state.dart';
+import 'package:smart_sprint/features/workspace/bloc/workspace_bloc.dart';
+import 'package:smart_sprint/features/workspace/bloc/workspace_event.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -45,6 +47,8 @@ class _LoginScreenState extends State<LoginScreen> {
     return BlocListener<AuthBloc, AuthState>(
       listener: (context, state) {
         if (state is AuthSuccess) {
+          // We now have a token — (re)load the user's workspace data, then go.
+          context.read<WorkspaceBloc>().add(WorkspaceLoaded());
           context.go('/home');
         } else if (state is AuthFailure) {
           ScaffoldMessenger.of(context).showSnackBar(

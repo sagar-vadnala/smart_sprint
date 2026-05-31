@@ -17,6 +17,7 @@ from app.core.security import (
 )
 from app.models.user import User
 from app.schemas.auth import AuthResponse, LoginRequest, SignupRequest, UserOut
+from app.services.orgs import create_personal_org
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -39,6 +40,11 @@ def signup(payload: SignupRequest, db: Session = Depends(get_db)) -> AuthRespons
         role="Product Manager",
     )
     db.add(user)
+    db.flush()  # assign user.id before creating their org
+
+    # Every new account starts with a private Personal organization.
+    create_personal_org(db, user)
+
     db.commit()
     db.refresh(user)
 

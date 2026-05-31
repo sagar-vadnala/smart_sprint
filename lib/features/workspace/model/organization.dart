@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:smart_sprint/features/workspace/data/json_mappers.dart';
 
 /// Top-level tenant. "Personal" is your own org (just you); a company like
 /// "Hikigai" is a team org you're invited to. Workspaces live inside an org.
@@ -7,9 +8,9 @@ enum OrgType {
   team;
 
   String get label => switch (this) {
-        OrgType.personal => 'Personal',
-        OrgType.team => 'Team',
-      };
+    OrgType.personal => 'Personal',
+    OrgType.team => 'Team',
+  };
 
   bool get isPersonal => this == OrgType.personal;
 }
@@ -30,6 +31,18 @@ class Organization {
     required this.icon,
     required this.memberIds,
   });
+
+  factory Organization.fromJson(Map<String, dynamic> json) {
+    return Organization(
+      id: json['id'] as String,
+      name: json['name'] as String? ?? '',
+      type: orgTypeFromName(json['type'] as String?),
+      color: colorFromInt(json['color'] as int?),
+      icon: iconFromKey(json['icon'] as String?),
+      memberIds:
+          (json['memberIds'] as List?)?.map((e) => e as String).toList() ?? [],
+    );
+  }
 
   bool get isPersonal => type.isPersonal;
 

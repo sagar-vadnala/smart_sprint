@@ -12,7 +12,16 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.core.database import init_db
-from app.routers import auth
+from app.routers import (
+    auth,
+    bootstrap,
+    comments,
+    organizations,
+    sprints,
+    subtasks,
+    tasks,
+    workspaces,
+)
 
 
 @asynccontextmanager
@@ -38,6 +47,13 @@ app.add_middleware(
 )
 
 app.include_router(auth.router)
+app.include_router(bootstrap.router)
+app.include_router(organizations.router)
+app.include_router(workspaces.router)
+app.include_router(sprints.router)
+app.include_router(tasks.router)
+app.include_router(subtasks.router)
+app.include_router(comments.router)
 
 
 @app.get("/", tags=["health"])
