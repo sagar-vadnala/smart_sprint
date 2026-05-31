@@ -22,8 +22,10 @@ class LoginRequest(BaseModel):
 
 
 class GoogleLoginRequest(BaseModel):
-    # The ID token returned by Google Sign-In on the client.
-    id_token: str
+    # Mobile sends id_token; web sends access_token (google_sign_in web
+    # limitation — popup flow returns access_token, not id_token).
+    id_token: str | None = None
+    access_token: str | None = None
 
 
 class UserOut(BaseModel):

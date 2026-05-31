@@ -108,12 +108,19 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       emit(AuthLoading());
       final auth = await account.authentication;
       final idToken = auth.idToken;
-      if (idToken == null) {
+      final accessToken = auth.accessToken;
+
+      // Web popup flow returns access_token but not id_token (google_sign_in
+      // limitation). Mobile returns id_token. Send whichever is available.
+      if (idToken == null && accessToken == null) {
         emit(AuthFailure('Google did not return a valid token. Try again.'));
         return;
       }
 
-      final user = await _repo.googleLogin(idToken);
+      final user = await _repo.googleLogin(
+        idToken: idToken,
+        accessToken: accessToken,
+      );
       emit(AuthSuccess(user));
     } on ApiException catch (e) {
       emit(AuthFailure(e.message));

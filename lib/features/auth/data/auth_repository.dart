@@ -38,9 +38,13 @@ class AuthRepository {
     return _persistAndParse(body);
   }
 
-  /// Exchange a Google ID token (obtained client-side) for our session.
-  Future<AuthUser> googleLogin(String idToken) async {
-    final body = await _api.post('/auth/google', data: {'id_token': idToken});
+  /// Exchange a Google credential for our session.
+  /// Mobile sends [idToken]; web sends [accessToken] (popup flow limitation).
+  Future<AuthUser> googleLogin({String? idToken, String? accessToken}) async {
+    final body = await _api.post('/auth/google', data: {
+      'id_token': idToken,
+      'access_token': accessToken,
+    });
     return _persistAndParse(body);
   }
 

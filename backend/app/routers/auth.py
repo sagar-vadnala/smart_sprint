@@ -6,6 +6,7 @@ Auth endpoints:
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
+import requests as http_requests
 from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token as google_id_token
 from sqlalchemy.orm import Session
@@ -80,11 +81,11 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)) -> AuthResponse:
 
 @router.post("/google", response_model=AuthResponse)
 def google_login(payload: GoogleLoginRequest, db: Session = Depends(get_db)) -> AuthResponse:
-    """Sign in with a Google ID token.
+    """Sign in with a Google credential.
 
-    The client (Flutter) does the Google OAuth dance and sends us the resulting
-    ID token; we verify it was issued by Google for our client, then find-or-
-    create the matching account (no password — it's an SSO user).
+    Mobile sends an `id_token` (verified cryptographically).
+    Web (google_sign_in popup flow) sends an `access_token` — we call
+    Google's userinfo API to get the user details.
     """
     if not settings.google_client_id:
         raise HTTPException(
@@ -92,19 +93,44 @@ def google_login(payload: GoogleLoginRequest, db: Session = Depends(get_db)) -> 
             detail="Google sign-in is not configured on the server.",
         )
 
-    try:
-        info = google_id_token.verify_oauth2_token(
-            payload.id_token,
-            google_requests.Request(),
-            settings.google_client_id,
-        )
-    except ValueError:
+    if not payload.id_token and not payload.access_token:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Could not verify your Google sign-in. Please try again.",
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Provide either id_token or access_token.",
         )
 
-    email = (info.get("email") or "").lower().strip()
+    # ── Path 1: id_token (mobile) ─────────────────────────────────────────────
+    if payload.id_token:
+        try:
+            info = google_id_token.verify_oauth2_token(
+                payload.id_token,
+                google_requests.Request(),
+                settings.google_client_id,
+            )
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Could not verify your Google sign-in. Please try again.",
+            )
+        email = (info.get("email") or "").lower().strip()
+        name = info.get("name") or ""
+
+    # ── Path 2: access_token (web fallback) ───────────────────────────────────
+    else:
+        resp = http_requests.get(
+            "https://www.googleapis.com/oauth2/v3/userinfo",
+            headers={"Authorization": f"Bearer {payload.access_token}"},
+            timeout=10,
+        )
+        if resp.status_code != 200:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Could not verify your Google sign-in. Please try again.",
+            )
+        info = resp.json()
+        email = (info.get("email") or "").lower().strip()
+        name = info.get("name") or ""
+
     if not email:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -113,11 +139,9 @@ def google_login(payload: GoogleLoginRequest, db: Session = Depends(get_db)) -> 
 
     user = db.query(User).filter(User.email == email).first()
     if user is None:
-        # New SSO account — empty password hash (password login stays disabled
-        # for them; verify_password fails closed on an empty hash).
         user = User(
             email=email,
-            name=info.get("name") or email.split("@")[0],
+            name=name or email.split("@")[0],
             password_hash="",
             role="Product Manager",
         )
