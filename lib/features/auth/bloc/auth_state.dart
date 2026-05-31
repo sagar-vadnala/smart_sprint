@@ -1,3 +1,5 @@
+import 'package:smart_sprint/features/auth/data/auth_user.dart';
+
 sealed class AuthState {}
 
 class AuthInitial extends AuthState {}
@@ -5,10 +7,9 @@ class AuthInitial extends AuthState {}
 class AuthLoading extends AuthState {}
 
 class AuthSuccess extends AuthState {
-  final String userName;
-  final String email;
+  final AuthUser user;
 
-  AuthSuccess({required this.userName, required this.email});
+  AuthSuccess(this.user);
 }
 
 class AuthFailure extends AuthState {

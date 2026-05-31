@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:smart_sprint/core/theme/app_colors.dart';
 import 'package:smart_sprint/core/theme/theme_cubit.dart';
 import 'package:smart_sprint/core/utils/responsive.dart';
+import 'package:smart_sprint/features/auth/data/auth_repository.dart';
 import 'package:smart_sprint/features/workspace/bloc/workspace_bloc.dart';
 import 'package:smart_sprint/features/workspace/view/widgets/member_avatar.dart';
 
@@ -237,7 +238,10 @@ class ProfileScreen extends StatelessWidget {
 
               // Sign out
               OutlinedButton.icon(
-                onPressed: () => context.go('/login'),
+                onPressed: () async {
+                  await AuthRepository().logout();
+                  if (context.mounted) context.go('/login');
+                },
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppColors.error,
                   side: const BorderSide(color: AppColors.error, width: 1.5),

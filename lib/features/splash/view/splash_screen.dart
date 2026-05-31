@@ -61,6 +61,8 @@ class _SplashScreenState extends State<SplashScreen>
           context.go('/onboarding');
         } else if (state is SplashNavigateLogin) {
           context.go('/login');
+        } else if (state is SplashNavigateHome) {
+          context.go('/home');
         }
       },
       child: Scaffold(
