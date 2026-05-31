@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:smart_sprint/features/workspace/model/enums.dart';
 import 'package:smart_sprint/features/workspace/model/organization.dart';
+import 'package:smart_sprint/features/workspace/model/team_member.dart';
 
 sealed class WorkspaceEvent {}
 
@@ -17,6 +18,14 @@ class WorkspaceOpened extends WorkspaceEvent {
   final String projectId;
 
   WorkspaceOpened(this.projectId);
+}
+
+/// Merge an org's refreshed member list into state (after an invite succeeds).
+class OrgMembersUpdated extends WorkspaceEvent {
+  final String organizationId;
+  final List<TeamMember> members;
+
+  OrgMembersUpdated(this.organizationId, this.members);
 }
 
 class OrganizationCreated extends WorkspaceEvent {

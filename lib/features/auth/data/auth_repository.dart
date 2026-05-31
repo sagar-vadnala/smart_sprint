@@ -38,6 +38,12 @@ class AuthRepository {
     return _persistAndParse(body);
   }
 
+  /// Exchange a Google ID token (obtained client-side) for our session.
+  Future<AuthUser> googleLogin(String idToken) async {
+    final body = await _api.post('/auth/google', data: {'id_token': idToken});
+    return _persistAndParse(body);
+  }
+
   /// Returns the user for a stored token, or null if there's no valid session.
   Future<AuthUser?> currentUser() async {
     final token = await _tokenStore.read();

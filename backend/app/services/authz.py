@@ -35,12 +35,38 @@ def _missing(what: str) -> HTTPException:
     return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"{what} not found.")
 
 
+def membership_role(db: Session, user_id: str, org_id: str) -> str | None:
+    m = (
+        db.query(Membership)
+        .filter(Membership.organization_id == org_id, Membership.user_id == user_id)
+        .first()
+    )
+    return m.role if m else None
+
+
 def require_org(db: Session, user_id: str, org_id: str) -> Organization:
     org = db.get(Organization, org_id)
     if org is None:
         raise _missing("Organization")
     if not is_member(db, user_id, org_id):
         raise _forbid()
+    return org
+
+
+def require_role(
+    db: Session, user_id: str, org_id: str, allowed: set[str]
+) -> Organization:
+    """Like require_org, but also requires the caller's role to be in [allowed].
+
+    Used for privileged operations such as managing membership.
+    """
+    org = require_org(db, user_id, org_id)
+    role = membership_role(db, user_id, org_id)
+    if role not in allowed:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have permission to do that.",
+        )
     return org
 
 

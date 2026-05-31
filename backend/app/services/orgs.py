@@ -39,6 +39,21 @@ def org_member_ids(db: Session, org_id: str) -> list[str]:
     return [r[0] for r in rows]
 
 
+def member_ids_by_org(db: Session, org_ids: list[str]) -> dict[str, list[str]]:
+    """Batched: member ids grouped by org in ONE query (avoids N+1)."""
+    if not org_ids:
+        return {}
+    result: dict[str, list[str]] = {oid: [] for oid in org_ids}
+    rows = (
+        db.query(Membership.organization_id, Membership.user_id)
+        .filter(Membership.organization_id.in_(org_ids))
+        .all()
+    )
+    for oid, uid in rows:
+        result.setdefault(oid, []).append(uid)
+    return result
+
+
 def org_members(db: Session, org_id: str) -> list[User]:
     return (
         db.query(User)

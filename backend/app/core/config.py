@@ -31,6 +31,12 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 60 * 24 * 7  # 7 days
 
+    # ── Google SSO ────────────────────────────────────────────────────────────
+    # The OAuth 2.0 **Web** client ID from Google Cloud Console. We verify that
+    # incoming Google ID tokens were issued for this client (the `aud` claim).
+    # Leave blank to disable Google sign-in (endpoint returns 503).
+    google_client_id: str = ""
+
     # ── CORS ──────────────────────────────────────────────────────────────────
     # Comma-separated origins allowed to call the API. "*" = allow any (fine for
     # this app because we use Bearer tokens in headers, not cookies).

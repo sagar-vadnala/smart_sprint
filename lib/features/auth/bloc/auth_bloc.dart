@@ -1,5 +1,8 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:smart_sprint/core/api/api_client.dart';
+import 'package:smart_sprint/core/api/api_config.dart';
 import 'package:smart_sprint/features/auth/data/auth_repository.dart';
 import 'auth_event.dart';
 import 'auth_state.dart';
@@ -75,8 +78,48 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     AuthGoogleSignInRequested event,
     Emitter<AuthState> emit,
   ) async {
-    // SSO is a later phase — don't fake a session (it would have no token).
-    emit(AuthFailure('Google sign-in is coming soon. Use email & password.'));
+    if (ApiConfig.googleClientId.isEmpty) {
+      emit(
+        AuthFailure(
+          'Google sign-in is not configured for this build. '
+          'Use email & password.',
+        ),
+      );
+      return;
+    }
+
+    try {
+      // On web we pass the client id directly; on mobile we use it as the
+      // serverClientId so the returned ID token's audience matches what the
+      // backend verifies against.
+      final googleSignIn = GoogleSignIn(
+        scopes: const ['email', 'profile'],
+        clientId: kIsWeb ? ApiConfig.googleClientId : null,
+        serverClientId: kIsWeb ? null : ApiConfig.googleClientId,
+      );
+
+      final account = await googleSignIn.signIn();
+      if (account == null) {
+        // User cancelled the chooser.
+        emit(AuthInitial());
+        return;
+      }
+
+      emit(AuthLoading());
+      final auth = await account.authentication;
+      final idToken = auth.idToken;
+      if (idToken == null) {
+        emit(AuthFailure('Google did not return a valid token. Try again.'));
+        return;
+      }
+
+      final user = await _repo.googleLogin(idToken);
+      emit(AuthSuccess(user));
+    } on ApiException catch (e) {
+      emit(AuthFailure(e.message));
+    } catch (_) {
+      emit(AuthFailure('Google sign-in failed. Please try again.'));
+    }
   }
 
   Future<void> _onLogout(

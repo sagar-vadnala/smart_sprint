@@ -17,6 +17,8 @@ services:
         sync: false # you paste your Neon connection string here
       - key: CORS_ORIGINS
         value: "*"
+      - key: GOOGLE_CLIENT_ID
+        sync: false # paste your Google OAuth Web client ID (or leave blank)
       - key: ENVIRONMENT
         value: production
       - key: PYTHON_VERSION

@@ -17,7 +17,7 @@ from app.models.sprint import Sprint
 from app.models.task import Task
 from app.models.user import User
 from app.models.workspace import Workspace
-from app.services.orgs import ensure_personal_org
+from app.services.orgs import ensure_personal_org, member_ids_by_org
 from app.services.serializers import (
     activity_json,
     member_json,
@@ -44,29 +44,21 @@ def bootstrap(
         .filter(Membership.user_id == user.id)
         .all()
     ]
+    if not org_ids:
+        return _empty(user)
 
-    orgs = (
-        db.query(Organization).filter(Organization.id.in_(org_ids)).all()
-        if org_ids
-        else []
-    )
+    orgs = db.query(Organization).filter(Organization.id.in_(org_ids)).all()
 
-    # All distinct members across my orgs.
-    member_ids = {
-        r[0]
-        for r in db.query(Membership.user_id)
-        .filter(Membership.organization_id.in_(org_ids))
-        .all()
-    } if org_ids else set()
+    # ONE query for all member ids across my orgs; reused for orgs + workspaces.
+    members_by_org = member_ids_by_org(db, org_ids)
+    member_ids = {uid for ids in members_by_org.values() for uid in ids}
     members = (
         db.query(User).filter(User.id.in_(member_ids)).all() if member_ids else []
     )
 
-    workspaces = (
-        db.query(Workspace).filter(Workspace.organization_id.in_(org_ids)).all()
-        if org_ids
-        else []
-    )
+    workspaces = db.query(Workspace).filter(
+        Workspace.organization_id.in_(org_ids)
+    ).all()
     ws_ids = [w.id for w in workspaces]
 
     sprints = (
@@ -74,6 +66,7 @@ def bootstrap(
         if ws_ids
         else []
     )
+    # selectin on Task.assignees/subtasks batches those loads automatically.
     tasks = (
         db.query(Task).filter(Task.workspace_id.in_(ws_ids)).all() if ws_ids else []
     )
@@ -83,23 +76,13 @@ def bootstrap(
         .order_by(Activity.created_at.desc())
         .limit(200)
         .all()
-        if org_ids
-        else []
     )
-
-    # Member ids per org, so each workspace can carry its org's members.
-    members_by_org: dict[str, list[str]] = {}
-    if org_ids:
-        for oid, uid in (
-            db.query(Membership.organization_id, Membership.user_id)
-            .filter(Membership.organization_id.in_(org_ids))
-            .all()
-        ):
-            members_by_org.setdefault(oid, []).append(uid)
 
     return {
         "user": member_json(user),
-        "organizations": [org_json(db, o) for o in orgs],
+        "organizations": [
+            org_json(o, members_by_org.get(o.id, [])) for o in orgs
+        ],
         "members": [member_json(m) for m in members],
         "workspaces": [
             workspace_json(w, members_by_org.get(w.organization_id, []))
@@ -108,4 +91,16 @@ def bootstrap(
         "sprints": [sprint_json(s) for s in sprints],
         "tasks": [task_json(t) for t in tasks],
         "activities": [activity_json(a) for a in activities],
+    }
+
+
+def _empty(user: User) -> dict:
+    return {
+        "user": member_json(user),
+        "organizations": [],
+        "members": [member_json(user)],
+        "workspaces": [],
+        "sprints": [],
+        "tasks": [],
+        "activities": [],
     }

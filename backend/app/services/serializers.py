@@ -8,14 +8,15 @@ are already stored as the Dart enum `.name`, so they pass through untouched.
 
 from datetime import datetime
 
-from sqlalchemy.orm import Session
-
 from app.models.organization import Organization
 from app.models.sprint import Sprint
 from app.models.task import SubTask, Task
 from app.models.user import User
 from app.models.workspace import Workspace
-from app.services.orgs import org_member_ids
+
+# These serializers are PURE — they take everything they need as arguments and
+# never touch the database. Callers fetch/batch the data; this keeps
+# serialization free of N+1 queries and trivially testable.
 
 
 def _iso(dt: datetime | None) -> str | None:
@@ -31,7 +32,7 @@ def member_json(user: User) -> dict:
     }
 
 
-def org_json(db: Session, org: Organization) -> dict:
+def org_json(org: Organization, member_ids: list[str]) -> dict:
     return {
         "id": org.id,
         "name": org.name,
@@ -39,7 +40,7 @@ def org_json(db: Session, org: Organization) -> dict:
         "color": org.color,
         "icon": org.icon,
         "ownerId": org.owner_id,
-        "memberIds": org_member_ids(db, org.id),
+        "memberIds": member_ids,
     }
 
 

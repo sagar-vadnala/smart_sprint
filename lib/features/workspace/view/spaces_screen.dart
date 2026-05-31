@@ -6,6 +6,7 @@ import 'package:smart_sprint/core/theme/app_colors.dart';
 import 'package:smart_sprint/features/workspace/bloc/workspace_bloc.dart';
 import 'package:smart_sprint/features/workspace/model/enums.dart';
 import 'package:smart_sprint/features/workspace/view/widgets/create_sheets.dart';
+import 'package:smart_sprint/features/workspace/view/widgets/invite_member_sheet.dart';
 import 'package:smart_sprint/features/workspace/view/widgets/member_avatar.dart';
 
 class SpacesScreen extends StatelessWidget {
@@ -87,6 +88,73 @@ class SpacesScreen extends StatelessWidget {
                 ),
               ),
             ),
+
+            // Team members strip (team orgs only) with an invite affordance.
+            if (!state.isPersonal)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 4, 16, 4),
+                  child: Row(
+                    children: [
+                      AvatarStack(
+                        members: state.members,
+                        size: 30,
+                        max: 6,
+                        borderColor: isDark
+                            ? AppColors.darkBg
+                            : AppColors.lightBg,
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        '${state.members.length} ${state.members.length == 1 ? 'member' : 'members'}',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 12.5,
+                          color: muted,
+                        ),
+                      ),
+                      const Spacer(),
+                      GestureDetector(
+                        onTap: () => showInviteMemberSheet(
+                          context,
+                          state.currentOrganizationId,
+                        ),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: isDark
+                                  ? AppColors.darkBorder
+                                  : AppColors.lightBorder,
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.person_add_alt_1_rounded,
+                                size: 15,
+                                color: AppColors.brand,
+                              ),
+                              const SizedBox(width: 5),
+                              Text(
+                                'Invite',
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.brand,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
 
             // Active sprints strip
             if (state.sprints.any((s) => s.status == SprintStatus.active)) ...[

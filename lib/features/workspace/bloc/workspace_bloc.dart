@@ -25,6 +25,7 @@ class WorkspaceBloc extends Bloc<WorkspaceEvent, WorkspaceState> {
     on<WorkspaceLoaded>(_onLoaded);
     on<OrganizationSwitched>(_onOrganizationSwitched);
     on<OrganizationCreated>(_onOrganizationCreated);
+    on<OrgMembersUpdated>(_onOrgMembersUpdated);
     on<WorkspaceOpened>(_onWorkspaceOpened);
     on<TaskCreated>(_onTaskCreated);
     on<TaskStatusChanged>(_onTaskStatusChanged);
@@ -126,6 +127,26 @@ class WorkspaceBloc extends Bloc<WorkspaceEvent, WorkspaceState> {
       ...state.recentWorkspaceIds.where((id) => id != event.projectId),
     ].take(6).toList();
     emit(state.copyWith(recentWorkspaceIds: next));
+  }
+
+  void _onOrgMembersUpdated(
+    OrgMembersUpdated event,
+    Emitter<WorkspaceState> emit,
+  ) {
+    // Merge the refreshed members into the global member pool (by id)...
+    final byId = {for (final m in state.allMembers) m.id: m};
+    for (final m in event.members) {
+      byId[m.id] = m;
+    }
+    // ...and update the org's memberIds.
+    final orgs = state.organizations
+        .map(
+          (o) => o.id == event.organizationId
+              ? o.copyWith(memberIds: event.members.map((m) => m.id).toList())
+              : o,
+        )
+        .toList();
+    emit(state.copyWith(allMembers: byId.values.toList(), organizations: orgs));
   }
 
   // ── Optimistic-activity helper (replaced by server truth on next bootstrap) ──

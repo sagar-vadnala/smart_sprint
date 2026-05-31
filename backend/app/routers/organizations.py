@@ -6,8 +6,8 @@ from app.core.deps import get_current_user
 from app.models.organization import Membership, Organization
 from app.models.user import User
 from app.schemas.workspace import AddMemberRequest, OrgCreate
-from app.services.authz import require_org
-from app.services.orgs import org_members
+from app.services.authz import require_org, require_role
+from app.services.orgs import member_ids_by_org, org_member_ids, org_members
 from app.services.serializers import member_json, org_json
 
 router = APIRouter(prefix="/organizations", tags=["organizations"])
@@ -24,7 +24,8 @@ def list_my_orgs(
         .filter(Membership.user_id == user.id)
         .all()
     )
-    return [org_json(db, o) for o in orgs]
+    by_org = member_ids_by_org(db, [o.id for o in orgs])
+    return [org_json(o, by_org.get(o.id, [])) for o in orgs]
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
@@ -44,7 +45,7 @@ def create_org(
     db.flush()
     db.add(Membership(organization_id=org.id, user_id=user.id, role="owner"))
     db.commit()
-    return org_json(db, org)
+    return org_json(org, org_member_ids(db, org.id))
 
 
 @router.get("/{org_id}")
@@ -54,7 +55,7 @@ def get_org(
     user: User = Depends(get_current_user),
 ):
     org = require_org(db, user.id, org_id)
-    return org_json(db, org)
+    return org_json(org, org_member_ids(db, org_id))
 
 
 @router.get("/{org_id}/members")
@@ -74,7 +75,8 @@ def add_member(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    org = require_org(db, user.id, org_id)
+    # Managing membership is privileged: only owners/admins can invite.
+    org = require_role(db, user.id, org_id, {"owner", "admin"})
     if org.type == "personal":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

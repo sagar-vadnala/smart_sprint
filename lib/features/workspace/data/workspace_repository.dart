@@ -70,6 +70,21 @@ class WorkspaceRepository {
     return Organization.fromJson(json);
   }
 
+  /// Invite an existing user (by email) into a team org. Returns the org's
+  /// full member list. Throws [ApiException] (e.g. "No user with that email").
+  Future<List<TeamMember>> addMember(String orgId, String email) async {
+    // `_api.post` unwraps a JSON array into {'data': [...]} and turns any
+    // 4xx error body into a readable ApiException.
+    final body = await _api.post(
+      '/organizations/$orgId/members',
+      data: {'email': email},
+    );
+    final list = (body['data'] as List)
+        .map((e) => TeamMember.fromJson(e as Map<String, dynamic>))
+        .toList();
+    return list;
+  }
+
   // ── Workspaces ──────────────────────────────────────────────────────────────
 
   Future<Project> createWorkspace({

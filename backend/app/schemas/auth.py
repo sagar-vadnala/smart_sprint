@@ -21,6 +21,11 @@ class LoginRequest(BaseModel):
     password: str = Field(min_length=1, max_length=128)
 
 
+class GoogleLoginRequest(BaseModel):
+    # The ID token returned by Google Sign-In on the client.
+    id_token: str
+
+
 class UserOut(BaseModel):
     id: str
     name: str
