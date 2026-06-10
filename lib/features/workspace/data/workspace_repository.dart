@@ -28,6 +28,48 @@ class BootstrapData {
   });
 }
 
+/// Result of creating an invitation. [acceptUrl] is the link the invitee opens;
+/// [emailSent] is false when the server has no email provider configured (the
+/// admin should then share [acceptUrl] manually).
+class InviteResult {
+  final String email;
+  final String acceptUrl;
+  final bool emailSent;
+
+  const InviteResult({
+    required this.email,
+    required this.acceptUrl,
+    required this.emailSent,
+  });
+}
+
+/// Public preview of an invitation, shown on the accept screen before login.
+class InvitePreview {
+  final String email;
+  final String status; // pending | accepted | revoked | expired
+  final String organizationId;
+  final String organizationName;
+  final String inviterName;
+
+  const InvitePreview({
+    required this.email,
+    required this.status,
+    required this.organizationId,
+    required this.organizationName,
+    required this.inviterName,
+  });
+
+  factory InvitePreview.fromJson(Map<String, dynamic> json) => InvitePreview(
+    email: json['email'] as String? ?? '',
+    status: json['status'] as String? ?? 'pending',
+    organizationId: json['organizationId'] as String? ?? '',
+    organizationName: json['organizationName'] as String? ?? 'an organization',
+    inviterName: json['inviterName'] as String? ?? 'A teammate',
+  );
+
+  bool get isPending => status == 'pending';
+}
+
 /// All workspace/org/task network calls. Returns parsed models so the bloc
 /// never touches raw JSON.
 class WorkspaceRepository {
@@ -83,6 +125,37 @@ class WorkspaceRepository {
         .map((e) => TeamMember.fromJson(e as Map<String, dynamic>))
         .toList();
     return list;
+  }
+
+  // ── Invitations ─────────────────────────────────────────────────────────────
+
+  /// Invite someone (by email) to a team org. They don't need an account yet —
+  /// the backend emails them an accept link. Throws [ApiException] on error
+  /// (e.g. already a member, not allowed).
+  Future<InviteResult> createInvite(String orgId, String email) async {
+    final json = await _api.post(
+      '/organizations/$orgId/invites',
+      data: {'email': email},
+    );
+    final invite = json['invite'] as Map<String, dynamic>?;
+    return InviteResult(
+      email: invite?['email'] as String? ?? email,
+      acceptUrl: json['acceptUrl'] as String? ?? '',
+      emailSent: json['emailSent'] as bool? ?? false,
+    );
+  }
+
+  /// Public preview of an invite by its token (no auth required).
+  Future<InvitePreview> getInvite(String token) async {
+    final json = await _api.get('/invites/$token');
+    return InvitePreview.fromJson(json);
+  }
+
+  /// Accept an invite. Must be logged in as the invited email. Returns the
+  /// organization the user just joined.
+  Future<Organization> acceptInvite(String token) async {
+    final json = await _api.post('/invites/$token/accept');
+    return Organization.fromJson(json);
   }
 
   // ── Workspaces ──────────────────────────────────────────────────────────────

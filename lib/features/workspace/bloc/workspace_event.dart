@@ -28,6 +28,14 @@ class OrgMembersUpdated extends WorkspaceEvent {
   OrgMembersUpdated(this.organizationId, this.members);
 }
 
+/// The user accepted an invite and joined [organizationId]. Re-bootstraps so
+/// the org's workspaces/members/tasks load, then makes it the active org.
+class OrganizationJoined extends WorkspaceEvent {
+  final String organizationId;
+
+  OrganizationJoined(this.organizationId);
+}
+
 class OrganizationCreated extends WorkspaceEvent {
   final String name;
   final OrgType type;

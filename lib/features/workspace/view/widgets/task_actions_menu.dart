@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:smart_sprint/core/theme/app_colors.dart';
+import 'package:smart_sprint/core/utils/adaptive_sheet.dart';
 import 'package:smart_sprint/features/workspace/bloc/workspace_bloc.dart';
 import 'package:smart_sprint/features/workspace/bloc/workspace_event.dart';
 import 'package:smart_sprint/features/workspace/model/task.dart';
@@ -55,9 +56,8 @@ Future<void> showTaskActions(
   bool popOnDelete = false,
 }) {
   final bloc = context.read<WorkspaceBloc>();
-  return showModalBottomSheet(
+  return showAdaptiveSheet(
     context: context,
-    backgroundColor: Colors.transparent,
     builder: (_) => BlocProvider.value(
       value: bloc,
       child: _ActionsSheet(task: task, popOnDelete: popOnDelete),
@@ -82,7 +82,6 @@ class _ActionsSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = isDark ? AppColors.darkSurface : AppColors.lightSurface;
     final border = isDark ? AppColors.darkBorder : AppColors.lightBorder;
     final textColor = isDark ? AppColors.darkText : AppColors.lightText;
     final muted = isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted;
@@ -112,24 +111,13 @@ class _ActionsSheet extends StatelessWidget {
     }
 
     return Container(
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+      decoration: sheetSurfaceDecoration(context),
       child: SafeArea(
         top: false,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              margin: const EdgeInsets.only(top: 10, bottom: 8),
-              width: 38,
-              height: 4,
-              decoration: BoxDecoration(
-                color: border,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
+            const SheetGrabber(),
             Padding(
               padding: const EdgeInsets.fromLTRB(22, 8, 22, 10),
               child: Row(
@@ -165,17 +153,19 @@ class _ActionsSheet extends StatelessWidget {
             _Action(
               icon: Icons.drive_file_move_outline,
               label: 'Move to workspace…',
-              onTap: () {
-                close();
-                _pickWorkspace(context, task, bloc);
+              onTap: () async {
+                // Keep this sheet mounted underneath so the picker can offer a
+                // back button; close everything once a move is made.
+                final moved = await _pickWorkspace(context, task, bloc);
+                if (moved == true && context.mounted) close();
               },
             ),
             _Action(
               icon: Icons.bolt_outlined,
               label: 'Move to sprint…',
-              onTap: () {
-                close();
-                _pickSprint(context, task, bloc);
+              onTap: () async {
+                final moved = await _pickSprint(context, task, bloc);
+                if (moved == true && context.mounted) close();
               },
             ),
             _Action(
@@ -273,14 +263,14 @@ class _Action extends StatelessWidget {
 
 // ─── Move-to pickers ──────────────────────────────────────────────────────────
 
-void _pickWorkspace(BuildContext context, Task task, WorkspaceBloc bloc) {
+Future<bool?> _pickWorkspace(BuildContext context, Task task, WorkspaceBloc bloc) {
   final state = bloc.state;
   final isDark = Theme.of(context).brightness == Brightness.dark;
-  showModalBottomSheet(
+  return showAdaptiveSheet<bool>(
     context: context,
-    backgroundColor: Colors.transparent,
     builder: (_) => _PickerSheet(
       title: 'Move to workspace',
+      showBack: true,
       items: state.projects.map((p) {
         return _PickerItem(
           leading: Container(
@@ -296,7 +286,7 @@ void _pickWorkspace(BuildContext context, Task task, WorkspaceBloc bloc) {
           selected: p.id == task.projectId,
           onTap: () {
             bloc.add(TaskMovedToProject(task.id, p.id));
-            Navigator.of(context).pop();
+            Navigator.of(context).pop(true);
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(
@@ -324,18 +314,18 @@ void _pickWorkspace(BuildContext context, Task task, WorkspaceBloc bloc) {
   );
 }
 
-void _pickSprint(BuildContext context, Task task, WorkspaceBloc bloc) {
+Future<bool?> _pickSprint(BuildContext context, Task task, WorkspaceBloc bloc) {
   final state = bloc.state;
   final sprints = state.sprintsForProject(task.projectId);
   final isDark = Theme.of(context).brightness == Brightness.dark;
   final muted = isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted;
 
-  showModalBottomSheet(
+  return showAdaptiveSheet<bool>(
     context: context,
-    backgroundColor: Colors.transparent,
     builder: (_) => _PickerSheet(
       title: 'Move to sprint',
       isDark: isDark,
+      showBack: true,
       items: [
         _PickerItem(
           leading: Container(
@@ -351,7 +341,7 @@ void _pickSprint(BuildContext context, Task task, WorkspaceBloc bloc) {
           selected: task.sprintId == null,
           onTap: () {
             bloc.add(TaskMovedToSprint(task.id, null));
-            Navigator.of(context).pop();
+            Navigator.of(context).pop(true);
           },
         ),
         ...sprints.map(
@@ -369,7 +359,7 @@ void _pickSprint(BuildContext context, Task task, WorkspaceBloc bloc) {
             selected: s.id == task.sprintId,
             onTap: () {
               bloc.add(TaskMovedToSprint(task.id, s.id));
-              Navigator.of(context).pop();
+              Navigator.of(context).pop(true);
             },
           ),
         ),
@@ -397,42 +387,51 @@ class _PickerSheet extends StatelessWidget {
   final List<_PickerItem> items;
   final bool isDark;
 
+  /// Shows a back arrow that returns to the sheet that opened this picker.
+  final bool showBack;
+
   const _PickerSheet({
     required this.title,
     required this.items,
     required this.isDark,
+    this.showBack = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    final bg = isDark ? AppColors.darkSurface : AppColors.lightSurface;
-    final border = isDark ? AppColors.darkBorder : AppColors.lightBorder;
     final textColor = isDark ? AppColors.darkText : AppColors.lightText;
 
     return Container(
       constraints: BoxConstraints(
         maxHeight: MediaQuery.sizeOf(context).height * 0.7,
       ),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+      decoration: sheetSurfaceDecoration(context),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            margin: const EdgeInsets.only(top: 10, bottom: 8),
-            width: 38,
-            height: 4,
-            decoration: BoxDecoration(
-              color: border,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
+          const SheetGrabber(),
           Padding(
-            padding: const EdgeInsets.fromLTRB(22, 8, 22, 12),
+            padding: EdgeInsets.fromLTRB(showBack ? 10 : 22, 8, 22, 12),
             child: Row(
               children: [
+                if (showBack)
+                  GestureDetector(
+                    onTap: () => Navigator.of(context).pop(),
+                    child: Container(
+                      width: 32,
+                      height: 32,
+                      margin: const EdgeInsets.only(right: 6),
+                      decoration: BoxDecoration(
+                        color: isDark ? AppColors.darkFill : AppColors.lightFill,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.arrow_back_rounded,
+                        size: 18,
+                        color: textColor,
+                      ),
+                    ),
+                  ),
                 Text(
                   title,
                   style: GoogleFonts.plusJakartaSans(

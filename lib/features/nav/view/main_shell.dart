@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:smart_sprint/core/theme/app_colors.dart';
 import 'package:smart_sprint/core/theme/theme_cubit.dart';
+import 'package:smart_sprint/core/utils/nav.dart';
 import 'package:smart_sprint/core/utils/responsive.dart';
 import 'package:smart_sprint/core/widgets/app_background.dart';
 import 'package:smart_sprint/core/widgets/brand_loader.dart';
@@ -86,7 +87,14 @@ class _ShellChrome extends StatelessWidget {
       );
     }
 
-    final loc = GoRouterState.of(context).matchedLocation;
+    // During a redirect the shell can rebuild for a frame while it's momentarily
+    // outside a route subtree, where GoRouterState.of throws. Guard it.
+    String loc;
+    try {
+      loc = GoRouterState.of(context).matchedLocation;
+    } catch (_) {
+      loc = '/home';
+    }
     final isHome = loc == '/home';
 
     // ── Wide layout: persistent side rail + centred content ──
@@ -97,17 +105,9 @@ class _ShellChrome extends StatelessWidget {
           child: Row(
             children: [
               const _SideNav(),
-              Expanded(
-                child: Align(
-                  alignment: Alignment.topCenter,
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(
-                      maxWidth: Breakpoints.contentMax,
-                    ),
-                    child: child,
-                  ),
-                ),
-              ),
+              // Content fills the remaining width (no centred max-width gutter,
+              // like ClickUp). Individual screens manage their own padding.
+              Expanded(child: child),
             ],
           ),
         ),
@@ -128,14 +128,15 @@ class _ShellChrome extends StatelessWidget {
 /// inside a detail screen (/t/:id, /w/:id, /profile, /search) pops back to the
 /// tabs and switches at the same time.
 ///
-/// Always navigates to /home: go_router treats a same-location `go` as a
-/// no-op, so this is safe when we're already there. The previous version
-/// guarded the navigation with `matchedLocation != '/home'` but that check
-/// raced with the cubit-driven rebuild from `cubit.select` and sometimes
-/// dropped the navigation entirely.
+/// Only navigates when we're NOT already on /home. On the web, `go('/home')`
+/// pushes a *new* browser-history entry every time (even to the same URL), so
+/// calling it unconditionally made the back button require N presses to leave.
+/// The tab itself is the IndexedStack driven by NavCubit, so when we're already
+/// on /home we just switch the cubit — no navigation needed.
 void _switchTab(BuildContext context, int index) {
   context.read<NavCubit>().select(index);
-  context.go('/home');
+  final onHome = GoRouterState.of(context).matchedLocation == '/home';
+  if (!onHome) context.go('/home');
 }
 
 /// The 4 main tabs. Rendered as the /home route's content; an IndexedStack so
@@ -311,7 +312,7 @@ class _SideNav extends StatelessWidget {
                   Divider(color: border, height: 24),
                   GestureDetector(
                     behavior: HitTestBehavior.opaque,
-                    onTap: () => context.push('/profile'),
+                    onTap: () => context.pushUnique('/profile'),
                     child: Row(
                       children: [
                         MemberAvatar(member: state.currentUser, size: 34),
@@ -333,7 +334,7 @@ class _SideNav extends StatelessWidget {
                                 ),
                               ),
                               Text(
-                                state.currentUser.role,
+                                state.currentUser.email,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: GoogleFonts.plusJakartaSans(
@@ -550,7 +551,7 @@ class _QuickAccessRow extends StatelessWidget {
       borderRadius: BorderRadius.circular(11),
       child: InkWell(
         borderRadius: BorderRadius.circular(11),
-        onTap: () => context.push('/w/${project.id as String}'),
+        onTap: () => context.pushUnique('/w/${project.id as String}'),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
           child: Row(

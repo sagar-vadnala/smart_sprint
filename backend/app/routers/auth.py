@@ -47,7 +47,6 @@ def signup(payload: SignupRequest, db: Session = Depends(get_db)) -> AuthRespons
         email=email,
         name=payload.name.strip(),
         password_hash=hash_password(payload.password),
-        role="Product Manager",
     )
     db.add(user)
     db.flush()  # assign user.id before creating their org
@@ -143,7 +142,6 @@ def google_login(payload: GoogleLoginRequest, db: Session = Depends(get_db)) -> 
             email=email,
             name=name or email.split("@")[0],
             password_hash="",
-            role="Product Manager",
         )
         db.add(user)
         db.flush()

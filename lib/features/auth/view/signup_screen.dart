@@ -54,7 +54,9 @@ class _SignupScreenState extends State<SignupScreen> {
       listener: (context, state) {
         if (state is AuthSuccess) {
           context.read<WorkspaceBloc>().add(WorkspaceLoaded());
-          context.go('/home');
+          // Honour a ?next= redirect (e.g. returning to an invite accept link).
+          final next = GoRouterState.of(context).uri.queryParameters['next'];
+          context.go(next != null && next.isNotEmpty ? next : '/home');
         } else if (state is AuthFailure) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(

@@ -44,7 +44,7 @@ User
 | email | str unique | login id |
 | name | str | |
 | password_hash | str | bcrypt |
-| role | str | display role e.g. "Product Manager" |
+| role | str | legacy/global field, defaults "Member"; not shown in UI. Per-org role lives on `memberships.role` (owner/admin/member) |
 | created_at | datetime | |
 
 ### organizations

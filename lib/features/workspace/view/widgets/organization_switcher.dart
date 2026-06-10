@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:smart_sprint/core/theme/app_colors.dart';
+import 'package:smart_sprint/core/utils/adaptive_sheet.dart';
 import 'package:smart_sprint/features/workspace/bloc/workspace_bloc.dart';
 import 'package:smart_sprint/features/workspace/bloc/workspace_event.dart';
 import 'package:smart_sprint/features/workspace/model/organization.dart';
@@ -72,10 +73,8 @@ class _OrgBadge extends StatelessWidget {
 
 Future<void> showOrganizationSwitcher(BuildContext context) {
   final bloc = context.read<WorkspaceBloc>();
-  return showModalBottomSheet(
+  return showAdaptiveSheet(
     context: context,
-    backgroundColor: Colors.transparent,
-    isScrollControlled: true,
     builder: (_) => BlocProvider.value(
       value: bloc,
       child: const _SwitcherSheet(),
@@ -90,28 +89,16 @@ class _SwitcherSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final state = context.watch<WorkspaceBloc>().state;
-    final bg = isDark ? AppColors.darkSurface : AppColors.lightSurface;
     final border = isDark ? AppColors.darkBorder : AppColors.lightBorder;
     final textColor = isDark ? AppColors.darkText : AppColors.lightText;
     final muted = isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted;
 
     return Container(
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+      decoration: sheetSurfaceDecoration(context),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            margin: const EdgeInsets.only(top: 10, bottom: 8),
-            width: 38,
-            height: 4,
-            decoration: BoxDecoration(
-              color: border,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
+          const SheetGrabber(),
           Padding(
             padding: const EdgeInsets.fromLTRB(22, 8, 22, 4),
             child: Row(
@@ -167,9 +154,13 @@ class _SwitcherSheet extends StatelessWidget {
                 }),
                 const SizedBox(height: 4),
                 GestureDetector(
-                  onTap: () {
-                    Navigator.of(context).pop();
-                    _showCreateOrganization(context);
+                  onTap: () async {
+                    // Keep the switcher mounted underneath so the create form
+                    // can offer a back button; close both once an org is made.
+                    final created = await _showCreateOrganization(context);
+                    if (created == true && context.mounted) {
+                      Navigator.of(context).pop();
+                    }
                   },
                   child: Container(
                     margin: const EdgeInsets.only(top: 4),
@@ -320,26 +311,28 @@ class _OrgRow extends StatelessWidget {
 
 // ─── Create organization ──────────────────────────────────────────────────────
 
-void _showCreateOrganization(BuildContext context) {
+Future<bool?> _showCreateOrganization(BuildContext context) {
   final bloc = context.read<WorkspaceBloc>();
-  showModalBottomSheet(
+  return showAdaptiveSheet<bool>(
     context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
-    builder: (_) => BlocProvider.value(
+    builder: (sheetContext) => BlocProvider.value(
       value: bloc,
-      child: Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-        ),
-        child: const _CreateOrgSheet(),
-      ),
+      child: useGlassDialog(sheetContext)
+          ? const _CreateOrgSheet(showBack: true)
+          : Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
+              ),
+              child: const _CreateOrgSheet(showBack: true),
+            ),
     ),
   );
 }
 
 class _CreateOrgSheet extends StatefulWidget {
-  const _CreateOrgSheet();
+  final bool showBack;
+
+  const _CreateOrgSheet({this.showBack = false});
 
   @override
   State<_CreateOrgSheet> createState() => _CreateOrgSheetState();
@@ -376,41 +369,47 @@ class _CreateOrgSheetState extends State<_CreateOrgSheet> {
               ? Icons.person_rounded
               : Icons.hexagon_rounded,
         ));
-    Navigator.of(context).pop();
+    Navigator.of(context).pop(true);
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = isDark ? AppColors.darkSurface : AppColors.lightSurface;
-    final border = isDark ? AppColors.darkBorder : AppColors.lightBorder;
     final textColor = isDark ? AppColors.darkText : AppColors.lightText;
     final muted = isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted;
 
     return Container(
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+      decoration: sheetSurfaceDecoration(context),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            margin: const EdgeInsets.only(top: 10, bottom: 14),
-            width: 38,
-            height: 4,
-            decoration: BoxDecoration(
-              color: border,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
+          const SheetGrabber(),
           Padding(
             padding: EdgeInsets.fromLTRB(
-                22, 0, 22, 16 + MediaQuery.paddingOf(context).bottom),
+                22, 6, 22, 16 + MediaQuery.paddingOf(context).bottom),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
+                if (widget.showBack) ...[
+                  GestureDetector(
+                    onTap: () => Navigator.of(context).pop(),
+                    child: Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: isDark ? AppColors.darkFill : AppColors.lightFill,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.arrow_back_rounded,
+                        size: 18,
+                        color: textColor,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
                 Text(
                   'New organization',
                   style: GoogleFonts.plusJakartaSans(

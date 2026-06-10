@@ -3,7 +3,7 @@
 
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, EmailStr, Field
 
 
 # ── Organizations ─────────────────────────────────────────────────────────────
@@ -18,6 +18,12 @@ class OrgCreate(BaseModel):
 class AddMemberRequest(BaseModel):
     email: str  # invite an existing user by email
     role: str = Field(default="member", pattern="^(owner|admin|member)$")
+
+
+class InviteCreate(BaseModel):
+    # Invite someone by email — they don't need an account yet.
+    email: EmailStr
+    role: str = Field(default="member", pattern="^(admin|member)$")
 
 
 # ── Workspaces ────────────────────────────────────────────────────────────────

@@ -37,6 +37,32 @@ class Settings(BaseSettings):
     # Leave blank to disable Google sign-in (endpoint returns 503).
     google_client_id: str = ""
 
+    # ── App URLs ──────────────────────────────────────────────────────────────
+    # Public base URL of the FRONTEND (Flutter web). Used to build invite accept
+    # links: {app_base_url}/#/invite/{token}. Override in production.
+    app_base_url: str = "http://localhost:8080"
+
+    # ── Email / SMTP (invitations) ────────────────────────────────────────────
+    # Leave SMTP_HOST blank to disable real email sending — invites are still
+    # created and the accept link is returned in the API response + logged, so
+    # the flow works end-to-end without an email provider. Fill these in (e.g. a
+    # Gmail address + app password) to start delivering real emails.
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from: str = ""  # falls back to smtp_user if blank
+    smtp_use_tls: bool = True  # STARTTLS (port 587). Set False for 465/SSL.
+
+    @property
+    def email_from_address(self) -> str:
+        return self.smtp_from or self.smtp_user
+
+    @property
+    def email_enabled(self) -> bool:
+        # Need a host and a sender address to send anything.
+        return bool(self.smtp_host and self.email_from_address)
+
     # ── CORS ──────────────────────────────────────────────────────────────────
     # Comma-separated origins allowed to call the API. "*" = allow any (fine for
     # this app because we use Bearer tokens in headers, not cookies).

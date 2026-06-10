@@ -289,15 +289,6 @@ class ProfileScreen extends StatelessWidget {
             color: textColor,
           ),
         ),
-        const SizedBox(height: 2),
-        Text(
-          user.role,
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 13.5,
-            fontWeight: FontWeight.w600,
-            color: AppColors.brand,
-          ),
-        ),
         const SizedBox(height: 4),
         Text(
           user.email,

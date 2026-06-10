@@ -55,6 +55,7 @@ def init_db() -> None:
         sprint,
         task,
         engagement,
+        invitation,
     )
 
     Base.metadata.create_all(bind=engine)

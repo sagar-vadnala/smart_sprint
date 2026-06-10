@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:smart_sprint/core/theme/app_colors.dart';
+import 'package:smart_sprint/core/utils/adaptive_sheet.dart';
+import 'package:smart_sprint/core/utils/nav.dart';
 import 'package:smart_sprint/features/nav/cubit/sidebar_cubit.dart';
 import 'package:smart_sprint/features/workspace/bloc/workspace_bloc.dart';
 import 'package:smart_sprint/features/workspace/model/project.dart';
@@ -94,7 +95,7 @@ class _SpaceTile extends StatefulWidget {
 class _SpaceTileState extends State<_SpaceTile> {
   bool _expanded = false;
 
-  void _open() => context.push('/w/${widget.workspace.id}');
+  void _open() => context.pushUnique('/w/${widget.workspace.id}');
 
   @override
   Widget build(BuildContext context) {
@@ -203,7 +204,8 @@ class _SpaceTileState extends State<_SpaceTile> {
                       iconColor: s.status.color,
                       label: s.name,
                       count: showCounts ? state.tasksForSprint(s.id).length : 0,
-                      onTap: () => context.push('/w/${w.id}?sprint=${s.id}'),
+                      onTap: () =>
+                          context.pushUnique('/w/${w.id}?sprint=${s.id}'),
                     ),
                   // Backlog — tasks in this workspace with no sprint set.
                   _SubRow(
@@ -216,7 +218,8 @@ class _SpaceTileState extends State<_SpaceTile> {
                               .where((t) => t.sprintId == null)
                               .length
                         : 0,
-                    onTap: () => context.push('/w/${w.id}?sprint=backlog'),
+                    onTap: () =>
+                        context.pushUnique('/w/${w.id}?sprint=backlog'),
                   ),
                 ],
               ),
@@ -344,10 +347,8 @@ class _HoverRow extends StatelessWidget {
 
 Future<void> showCustomizeSidebar(BuildContext context) {
   final sidebar = context.read<SidebarCubit>();
-  return showModalBottomSheet(
+  return showAdaptiveSheet(
     context: context,
-    backgroundColor: Colors.transparent,
-    isScrollControlled: true,
     builder: (_) =>
         BlocProvider.value(value: sidebar, child: const _CustomizeSheet()),
   );
@@ -359,30 +360,17 @@ class _CustomizeSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = isDark ? AppColors.darkSurface : AppColors.lightSurface;
-    final border = isDark ? AppColors.darkBorder : AppColors.lightBorder;
     final textColor = isDark ? AppColors.darkText : AppColors.lightText;
     final muted = isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted;
     final cubit = context.watch<SidebarCubit>();
     final s = cubit.state;
 
     return Container(
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+      decoration: sheetSurfaceDecoration(context),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            margin: const EdgeInsets.only(top: 10, bottom: 8),
-            width: 38,
-            height: 4,
-            decoration: BoxDecoration(
-              color: border,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
+          const SheetGrabber(),
           Padding(
             padding: const EdgeInsets.fromLTRB(22, 8, 22, 4),
             child: Row(

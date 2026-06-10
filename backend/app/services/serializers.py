@@ -32,6 +32,20 @@ def member_json(user: User) -> dict:
     }
 
 
+def invite_json(inv, inviter_name: str = "") -> dict:
+    return {
+        "id": inv.id,
+        "organizationId": inv.organization_id,
+        "email": inv.email,
+        "role": inv.role,
+        "status": inv.status,
+        "invitedBy": inv.invited_by,
+        "inviterName": inviter_name,
+        "createdAt": _iso(inv.created_at),
+        "expiresAt": _iso(inv.expires_at),
+    }
+
+
 def org_json(org: Organization, member_ids: list[str]) -> dict:
     return {
         "id": org.id,

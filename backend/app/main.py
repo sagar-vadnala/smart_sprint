@@ -20,6 +20,7 @@ from app.routers import (
     auth,
     bootstrap,
     comments,
+    invitations,
     organizations,
     sprints,
     subtasks,
@@ -64,6 +65,7 @@ async def _unhandled(request: Request, exc: Exception) -> JSONResponse:
 app.include_router(auth.router)
 app.include_router(bootstrap.router)
 app.include_router(organizations.router)
+app.include_router(invitations.router)
 app.include_router(workspaces.router)
 app.include_router(sprints.router)
 app.include_router(tasks.router)

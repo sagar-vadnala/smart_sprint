@@ -1,7 +1,7 @@
 abstract final class ApiConfig {
   static const String baseUrl = 'https://smartsprint-api.onrender.com';
 
-  static const Duration connectTimeout = Duration(seconds: 20);
+  static const Duration connectTimeout = Duration(seconds: 60);
 
   // Render free tier can cold-start ~50s — give responses room to arrive.
   static const Duration receiveTimeout = Duration(seconds: 60);

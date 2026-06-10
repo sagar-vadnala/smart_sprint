@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:smart_sprint/core/auth/auth_session.dart';
 import 'package:smart_sprint/core/router/app_router.dart';
 import 'package:smart_sprint/core/theme/app_theme.dart';
 import 'package:smart_sprint/core/theme/theme_cubit.dart';
 import 'package:smart_sprint/features/workspace/bloc/workspace_bloc.dart';
 import 'package:smart_sprint/features/workspace/bloc/workspace_event.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Seed auth state from the persisted token before the first frame so the
+  // router's redirects make the right call on the very first navigation.
+  await authSession.init();
   runApp(const SmartSprintApp());
 }
 

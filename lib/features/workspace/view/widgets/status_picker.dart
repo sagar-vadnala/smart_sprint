@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:smart_sprint/core/theme/app_colors.dart';
+import 'package:smart_sprint/core/utils/adaptive_sheet.dart';
 import 'package:smart_sprint/features/workspace/bloc/workspace_bloc.dart';
 import 'package:smart_sprint/features/workspace/bloc/workspace_event.dart';
 import 'package:smart_sprint/features/workspace/model/enums.dart';
@@ -203,8 +204,6 @@ Future<void> showPriorityPicker(
   required ValueChanged<TaskPriority?> onPick,
 }) {
   final isDark = Theme.of(context).brightness == Brightness.dark;
-  final bg = isDark ? AppColors.darkSurface : AppColors.lightSurface;
-  final border = isDark ? AppColors.darkBorder : AppColors.lightBorder;
   final textColor = isDark ? AppColors.darkText : AppColors.lightText;
   final muted = isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted;
 
@@ -239,27 +238,16 @@ Future<void> showPriorityPicker(
     );
   }
 
-  return showModalBottomSheet(
+  return showAdaptiveSheet(
     context: context,
-    backgroundColor: Colors.transparent,
-    builder: (_) => Container(
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            margin: const EdgeInsets.only(top: 10, bottom: 6),
-            width: 38,
-            height: 4,
-            decoration: BoxDecoration(
-              color: border,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          for (final p in TaskPriority.values)
+    builder: (context) => Builder(
+      builder: (context) => Container(
+        decoration: sheetSurfaceDecoration(context),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SheetGrabber(),
+            for (final p in TaskPriority.values)
             row(
               leading: Icon(Icons.flag_rounded, size: 18, color: p.color),
               label: p.label,
@@ -278,8 +266,9 @@ Future<void> showPriorityPicker(
               Navigator.of(context).pop();
             },
           ),
-          SizedBox(height: 8 + MediaQuery.paddingOf(context).bottom),
-        ],
+            SizedBox(height: 8 + MediaQuery.paddingOf(context).bottom),
+          ],
+        ),
       ),
     ),
   );

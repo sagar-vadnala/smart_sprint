@@ -1,11 +1,11 @@
 {
-    "name": "smart_sprint",
-    "short_name": "smart_sprint",
+    "name": "SmartSprint",
+    "short_name": "SmartSprint",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#0A0A0F",
+    "theme_color": "#6C47FF",
+    "description": "The focused workspace for sprints, tasks and teams. Plan sprints, track work and ship faster.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

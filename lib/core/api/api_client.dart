@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:smart_sprint/core/api/api_config.dart';
+import 'package:smart_sprint/core/auth/auth_session.dart';
 import 'package:smart_sprint/core/auth/token_store.dart';
 
 /// Thin wrapper around Dio. Attaches the Bearer token to every request and
@@ -28,6 +29,18 @@ class ApiClient {
             options.headers['Authorization'] = 'Bearer $token';
           }
           handler.next(options);
+        },
+        onResponse: (response, handler) {
+          // A 401 on any non-auth endpoint means the session is invalid or
+          // expired. Clear the stale token and signal the router so it bounces
+          // the user to login instead of leaving them on a broken screen.
+          // (Auth endpoints 401 on wrong credentials — not a session issue.)
+          final path = response.requestOptions.path;
+          if (response.statusCode == 401 && !path.startsWith('/auth/')) {
+            _tokenStore.clear();
+            authSession.signedOut();
+          }
+          handler.next(response);
         },
       ),
     );

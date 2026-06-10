@@ -19,6 +19,22 @@ services:
         value: "*"
       - key: GOOGLE_CLIENT_ID
         sync: false # paste your Google OAuth Web client ID (or leave blank)
+      - key: APP_BASE_URL
+        sync: false # your Flutter web app origin, e.g. https://app.example.com
+      # ── Email / SMTP (invitations) — optional. Leave SMTP_HOST blank to skip
+      # real email; invite accept links are returned by the API regardless. ──
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: SMTP_FROM
+        sync: false
+      - key: SMTP_USE_TLS
+        value: "true"
       - key: ENVIRONMENT
         value: production
       - key: PYTHON_VERSION

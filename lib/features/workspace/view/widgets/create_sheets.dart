@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:smart_sprint/core/theme/app_colors.dart';
+import 'package:smart_sprint/core/utils/adaptive_sheet.dart';
 import 'package:smart_sprint/core/utils/formatting.dart';
 import 'package:smart_sprint/features/workspace/bloc/workspace_bloc.dart';
 import 'package:smart_sprint/features/workspace/bloc/workspace_event.dart';
 import 'package:smart_sprint/features/workspace/model/enums.dart';
+import 'package:smart_sprint/features/workspace/model/sprint.dart';
 import 'member_avatar.dart';
 
 // ─── Public entry points ──────────────────────────────────────────────────────
@@ -15,11 +17,15 @@ Future<void> showCreateMenu(BuildContext context) {
   return _open(context, bloc, const _CreateMenu());
 }
 
-Future<void> showCreateTaskSheet(
+/// Returns `true` once the sheet finishes its task (created / dismissed), or
+/// `null` if the user backed out — the [showCreateMenu] flow uses this to
+/// decide whether to close the menu underneath or reveal it again.
+Future<bool?> showCreateTaskSheet(
   BuildContext context, {
   String? projectId,
   String? sprintId,
   TaskStatus? initialStatus,
+  bool fromMenu = false,
 }) {
   final bloc = context.read<WorkspaceBloc>();
   return _open(
@@ -29,35 +35,67 @@ Future<void> showCreateTaskSheet(
       initialProjectId: projectId,
       initialSprintId: sprintId,
       initialStatus: initialStatus,
+      fromMenu: fromMenu,
     ),
   );
 }
 
-Future<void> showCreateSprintSheet(BuildContext context, {String? projectId}) {
+Future<bool?> showCreateSprintSheet(
+  BuildContext context, {
+  String? projectId,
+  bool fromMenu = false,
+}) {
   final bloc = context.read<WorkspaceBloc>();
-  return _open(context, bloc, _CreateSprintSheet(initialProjectId: projectId));
+  return _open(
+    context,
+    bloc,
+    _CreateSprintSheet(initialProjectId: projectId, fromMenu: fromMenu),
+  );
 }
 
-Future<void> showCreateProjectSheet(BuildContext context) {
+Future<bool?> showCreateProjectSheet(
+  BuildContext context, {
+  bool fromMenu = false,
+}) {
   final bloc = context.read<WorkspaceBloc>();
-  return _open(context, bloc, const _CreateProjectSheet());
+  return _open(context, bloc, _CreateProjectSheet(fromMenu: fromMenu));
 }
 
-Future<void> _open(BuildContext context, WorkspaceBloc bloc, Widget child) {
-  return showModalBottomSheet(
+Future<bool?> _open(BuildContext context, WorkspaceBloc bloc, Widget child) {
+  return showAdaptiveSheet<bool>(
     context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
-    builder: (_) => BlocProvider.value(
+    // Use the sheet's own context for MediaQuery — the captured outer context
+    // can be stale/unmounted by the time the sheet rebuilds (e.g. when the
+    // keyboard opens), which throws "Unexpected null value".
+    builder: (sheetContext) => BlocProvider.value(
       value: bloc,
-      child: Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-        ),
-        child: child,
-      ),
+      // The glass dialog frame already lifts itself above the keyboard, so we
+      // only add the inset padding in bottom-sheet mode.
+      child: useGlassDialog(sheetContext)
+          ? child
+          : Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
+              ),
+              child: child,
+            ),
     ),
   );
+}
+
+/// A create-sheet entry point — all three share the `{bool fromMenu}` named
+/// parameter, so the menu can open any of them through one helper.
+typedef _SheetOpener = Future<bool?> Function(
+  BuildContext context, {
+  bool fromMenu,
+});
+
+/// Opens [open] from the create menu, keeping the menu mounted underneath so a
+/// back press returns to it. When the sheet completes (created / dismissed via
+/// X), the menu closes too.
+Future<void> _openFromMenu(BuildContext context, _SheetOpener open) async {
+  final done = await open(context, fromMenu: true);
+  if (done == true && context.mounted) Navigator.of(context).pop(true);
 }
 
 // ─── Shared sheet chrome ──────────────────────────────────────────────────────
@@ -68,18 +106,21 @@ class _SheetShell extends StatelessWidget {
   final Widget child;
   final Widget? footer;
 
+  /// When set, a back arrow is shown that returns to the previous sheet (the
+  /// create menu) instead of dismissing the whole flow.
+  final VoidCallback? onBack;
+
   const _SheetShell({
     required this.title,
     this.subtitle,
     required this.child,
     this.footer,
+    this.onBack,
   });
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = isDark ? AppColors.darkSurface : AppColors.lightSurface;
-    final border = isDark ? AppColors.darkBorder : AppColors.lightBorder;
     final textColor = isDark ? AppColors.darkText : AppColors.lightText;
     final muted = isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted;
 
@@ -87,27 +128,33 @@ class _SheetShell extends StatelessWidget {
       constraints: BoxConstraints(
         maxHeight: MediaQuery.sizeOf(context).height * 0.9,
       ),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+      decoration: sheetSurfaceDecoration(context),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Grabber
-          Container(
-            margin: const EdgeInsets.only(top: 10, bottom: 6),
-            width: 38,
-            height: 4,
-            decoration: BoxDecoration(
-              color: border,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
+          const SheetGrabber(),
           Padding(
-            padding: const EdgeInsets.fromLTRB(22, 8, 22, 14),
+            padding: EdgeInsets.fromLTRB(onBack != null ? 10 : 22, 8, 22, 14),
             child: Row(
               children: [
+                if (onBack != null)
+                  GestureDetector(
+                    onTap: onBack,
+                    child: Container(
+                      width: 32,
+                      height: 32,
+                      margin: const EdgeInsets.only(right: 6),
+                      decoration: BoxDecoration(
+                        color: isDark ? AppColors.darkFill : AppColors.lightFill,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.arrow_back_rounded,
+                        size: 18,
+                        color: textColor,
+                      ),
+                    ),
+                  ),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -135,7 +182,7 @@ class _SheetShell extends StatelessWidget {
                   ),
                 ),
                 GestureDetector(
-                  onTap: () => Navigator.of(context).pop(),
+                  onTap: () => Navigator.of(context).pop(true),
                   child: Container(
                     width: 32,
                     height: 32,
@@ -189,6 +236,44 @@ class _Label extends StatelessWidget {
           letterSpacing: 0.3,
           color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
         ),
+      ),
+    );
+  }
+}
+
+/// A muted, bordered informational note used inside the create sheets.
+class _HintNote extends StatelessWidget {
+  final String text;
+
+  const _HintNote(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final muted = isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted;
+    final fill = isDark ? AppColors.darkFill : AppColors.lightFill;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
+      decoration: BoxDecoration(
+        color: fill,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.auto_awesome_rounded, size: 16, color: AppColors.brand),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Text(
+              text,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w500,
+                color: muted,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -273,30 +358,21 @@ class _CreateMenu extends StatelessWidget {
             color: AppColors.brand,
             title: 'New Task',
             subtitle: 'Add work and assign it to your team',
-            onTap: () {
-              Navigator.of(context).pop();
-              showCreateTaskSheet(context);
-            },
+            onTap: () => _openFromMenu(context, showCreateTaskSheet),
           ),
           _MenuRow(
             icon: Icons.bolt_rounded,
             color: AppColors.accent,
             title: 'New Sprint',
             subtitle: 'Plan a time-boxed cycle of work',
-            onTap: () {
-              Navigator.of(context).pop();
-              showCreateSprintSheet(context);
-            },
+            onTap: () => _openFromMenu(context, showCreateSprintSheet),
           ),
           _MenuRow(
             icon: Icons.folder_open_rounded,
             color: const Color(0xFF14B8A6),
             title: 'New Workspace',
             subtitle: 'Spin up a space for a new initiative',
-            onTap: () {
-              Navigator.of(context).pop();
-              showCreateProjectSheet(context);
-            },
+            onTap: () => _openFromMenu(context, showCreateProjectSheet),
           ),
           const SizedBox(height: 8),
         ],
@@ -385,11 +461,13 @@ class _CreateTaskSheet extends StatefulWidget {
   final String? initialProjectId;
   final String? initialSprintId;
   final TaskStatus? initialStatus;
+  final bool fromMenu;
 
   const _CreateTaskSheet({
     this.initialProjectId,
     this.initialSprintId,
     this.initialStatus,
+    this.fromMenu = false,
   });
 
   @override
@@ -411,7 +489,12 @@ class _CreateTaskSheetState extends State<_CreateTaskSheet> {
   void initState() {
     super.initState();
     final state = context.read<WorkspaceBloc>().state;
-    _projectId = widget.initialProjectId ?? state.projects.first.id;
+    final projects = state.projects;
+    // May have no workspace yet — the bloc will auto-create a default one on
+    // submit, so an empty id here is fine.
+    _projectId =
+        widget.initialProjectId ??
+        (projects.isNotEmpty ? projects.first.id : '');
     _sprintId = widget.initialSprintId;
     _status = widget.initialStatus ?? TaskStatus.todo;
     _assignees.add(state.currentUserId);
@@ -450,16 +533,22 @@ class _CreateTaskSheetState extends State<_CreateTaskSheet> {
         dueDate: _dueDate,
       ),
     );
-    Navigator.of(context).pop();
+    Navigator.of(context).pop(true);
     ScaffoldMessenger.of(context).showSnackBar(_toast(context, 'Task created'));
   }
 
   @override
   Widget build(BuildContext context) {
     final state = context.watch<WorkspaceBloc>().state;
-    final project = state.projectById(_projectId)!;
-    final sprints = state.sprintsForProject(_projectId);
-    final projectMembers = state.membersFor(project.memberIds);
+    final project = state.projectById(_projectId);
+    final sprints = project == null
+        ? const <Sprint>[]
+        : state.sprintsForProject(_projectId);
+    // Fall back to the org's members when there's no workspace yet.
+    final projectMembers = project != null
+        ? state.membersFor(project.memberIds)
+        : state.members;
+    final hasWorkspace = state.projects.isNotEmpty;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final textColor = isDark ? AppColors.darkText : AppColors.lightText;
 
@@ -471,6 +560,7 @@ class _CreateTaskSheetState extends State<_CreateTaskSheet> {
     return _SheetShell(
       title: 'New Task',
       subtitle: 'Capture work and assign an owner',
+      onBack: widget.fromMenu ? () => Navigator.of(context).pop() : null,
       footer: _primaryButton(
         label: 'Create Task',
         enabled: true,
@@ -501,26 +591,31 @@ class _CreateTaskSheetState extends State<_CreateTaskSheet> {
           const SizedBox(height: 20),
 
           const _Label('WORKSPACE'),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: state.projects.map((p) {
-              return _SelectChip(
-                label: p.name,
-                selected: p.id == _projectId,
-                accent: p.color,
-                leading: Container(
-                  width: 9,
-                  height: 9,
-                  decoration: BoxDecoration(
-                    color: p.color,
-                    shape: BoxShape.circle,
+          if (!hasWorkspace)
+            const _HintNote(
+              'No workspace yet — we\'ll create one called "My Tasks" for you.',
+            )
+          else
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: state.projects.map((p) {
+                return _SelectChip(
+                  label: p.name,
+                  selected: p.id == _projectId,
+                  accent: p.color,
+                  leading: Container(
+                    width: 9,
+                    height: 9,
+                    decoration: BoxDecoration(
+                      color: p.color,
+                      shape: BoxShape.circle,
+                    ),
                   ),
-                ),
-                onTap: () => setState(() => _projectId = p.id),
-              );
-            }).toList(),
-          ),
+                  onTap: () => setState(() => _projectId = p.id),
+                );
+              }).toList(),
+            ),
           const SizedBox(height: 20),
 
           if (sprints.isNotEmpty) ...[
@@ -736,8 +831,9 @@ class _DateField extends StatelessWidget {
 
 class _CreateSprintSheet extends StatefulWidget {
   final String? initialProjectId;
+  final bool fromMenu;
 
-  const _CreateSprintSheet({this.initialProjectId});
+  const _CreateSprintSheet({this.initialProjectId, this.fromMenu = false});
 
   @override
   State<_CreateSprintSheet> createState() => _CreateSprintSheetState();
@@ -755,7 +851,11 @@ class _CreateSprintSheetState extends State<_CreateSprintSheet> {
   void initState() {
     super.initState();
     final state = context.read<WorkspaceBloc>().state;
-    _projectId = widget.initialProjectId ?? state.projects.first.id;
+    final projects = state.projects;
+    // May have no workspace yet — the bloc auto-creates a default one on submit.
+    _projectId =
+        widget.initialProjectId ??
+        (projects.isNotEmpty ? projects.first.id : '');
     _start = DateTime.now();
     _end = _start.add(const Duration(days: 14));
   }
@@ -799,7 +899,7 @@ class _CreateSprintSheetState extends State<_CreateSprintSheet> {
         endDate: _end,
       ),
     );
-    Navigator.of(context).pop();
+    Navigator.of(context).pop(true);
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(_toast(context, 'Sprint created'));
@@ -814,6 +914,7 @@ class _CreateSprintSheetState extends State<_CreateSprintSheet> {
     return _SheetShell(
       title: 'New Sprint',
       subtitle: 'Plan a focused cycle of work',
+      onBack: widget.fromMenu ? () => Navigator.of(context).pop() : null,
       footer: _primaryButton(
         label: 'Create Sprint',
         enabled: true,
@@ -846,26 +947,31 @@ class _CreateSprintSheetState extends State<_CreateSprintSheet> {
           const SizedBox(height: 20),
 
           const _Label('WORKSPACE'),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: state.projects.map((p) {
-              return _SelectChip(
-                label: p.name,
-                selected: p.id == _projectId,
-                accent: p.color,
-                leading: Container(
-                  width: 9,
-                  height: 9,
-                  decoration: BoxDecoration(
-                    color: p.color,
-                    shape: BoxShape.circle,
+          if (state.projects.isEmpty)
+            const _HintNote(
+              'No workspace yet — we\'ll create one called "My Tasks" for you.',
+            )
+          else
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: state.projects.map((p) {
+                return _SelectChip(
+                  label: p.name,
+                  selected: p.id == _projectId,
+                  accent: p.color,
+                  leading: Container(
+                    width: 9,
+                    height: 9,
+                    decoration: BoxDecoration(
+                      color: p.color,
+                      shape: BoxShape.circle,
+                    ),
                   ),
-                ),
-                onTap: () => setState(() => _projectId = p.id),
-              );
-            }).toList(),
-          ),
+                  onTap: () => setState(() => _projectId = p.id),
+                );
+              }).toList(),
+            ),
           const SizedBox(height: 20),
 
           const _Label('DURATION'),
@@ -897,7 +1003,9 @@ class _CreateSprintSheetState extends State<_CreateSprintSheet> {
 // ─── Create project ───────────────────────────────────────────────────────────
 
 class _CreateProjectSheet extends StatefulWidget {
-  const _CreateProjectSheet();
+  final bool fromMenu;
+
+  const _CreateProjectSheet({this.fromMenu = false});
 
   @override
   State<_CreateProjectSheet> createState() => _CreateProjectSheetState();
@@ -948,7 +1056,7 @@ class _CreateProjectSheetState extends State<_CreateProjectSheet> {
         memberIds: _members.toList(),
       ),
     );
-    Navigator.of(context).pop();
+    Navigator.of(context).pop(true);
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(_toast(context, 'Workspace created'));
@@ -964,6 +1072,7 @@ class _CreateProjectSheetState extends State<_CreateProjectSheet> {
     return _SheetShell(
       title: 'New Workspace',
       subtitle: 'Create a space for a new initiative',
+      onBack: widget.fromMenu ? () => Navigator.of(context).pop() : null,
       footer: _primaryButton(
         label: 'Create Workspace',
         enabled: true,

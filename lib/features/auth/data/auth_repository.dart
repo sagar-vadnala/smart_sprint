@@ -1,4 +1,5 @@
 import 'package:smart_sprint/core/api/api_client.dart';
+import 'package:smart_sprint/core/auth/auth_session.dart';
 import 'package:smart_sprint/core/auth/token_store.dart';
 import 'package:smart_sprint/features/auth/data/auth_user.dart';
 
@@ -58,6 +59,7 @@ class AuthRepository {
     } on ApiException {
       // Token expired/invalid — clear it so we don't loop.
       await _tokenStore.clear();
+      authSession.signedOut();
       return null;
     }
   }
@@ -67,12 +69,16 @@ class AuthRepository {
     return token != null && token.isNotEmpty;
   }
 
-  Future<void> logout() => _tokenStore.clear();
+  Future<void> logout() async {
+    await _tokenStore.clear();
+    authSession.signedOut();
+  }
 
   Future<AuthUser> _persistAndParse(Map<String, dynamic> body) async {
     final token = body['access_token'] as String?;
     if (token != null && token.isNotEmpty) {
       await _tokenStore.save(token);
+      authSession.signedIn();
     }
     final user = body['user'] as Map<String, dynamic>;
     return AuthUser.fromJson(user);

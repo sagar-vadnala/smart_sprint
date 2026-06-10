@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:smart_sprint/core/theme/app_colors.dart';
+import 'package:smart_sprint/core/utils/adaptive_sheet.dart';
 import 'package:smart_sprint/features/workspace/bloc/workspace_bloc.dart';
 import 'package:smart_sprint/features/workspace/model/team_member.dart';
 import 'member_avatar.dart';
@@ -16,10 +17,8 @@ Future<void> showAssigneeSheet(
   String title = 'Assignees',
 }) {
   final bloc = context.read<WorkspaceBloc>();
-  return showModalBottomSheet(
+  return showAdaptiveSheet(
     context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
     builder: (_) => BlocProvider.value(
       value: bloc,
       child: _AssigneeSheet(
@@ -66,7 +65,6 @@ class _AssigneeSheetState extends State<_AssigneeSheet> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = isDark ? AppColors.darkSurface : AppColors.lightSurface;
     final border = isDark ? AppColors.darkBorder : AppColors.lightBorder;
     final textColor = isDark ? AppColors.darkText : AppColors.lightText;
     final muted = isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted;
@@ -75,22 +73,11 @@ class _AssigneeSheetState extends State<_AssigneeSheet> {
       constraints: BoxConstraints(
         maxHeight: MediaQuery.sizeOf(context).height * 0.7,
       ),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+      decoration: sheetSurfaceDecoration(context),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            margin: const EdgeInsets.only(top: 10, bottom: 8),
-            width: 38,
-            height: 4,
-            decoration: BoxDecoration(
-              color: border,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
+          const SheetGrabber(),
           Padding(
             padding: const EdgeInsets.fromLTRB(22, 8, 22, 8),
             child: Row(

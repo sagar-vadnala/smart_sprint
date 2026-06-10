@@ -124,8 +124,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       emit(AuthSuccess(user));
     } on ApiException catch (e) {
       emit(AuthFailure(e.message));
-    } catch (_) {
-      emit(AuthFailure('Google sign-in failed. Please try again.'));
+    } catch (e) {
+      // Surface the real error while we debug web sign-in.
+      emit(AuthFailure('Google sign-in failed: $e'));
     }
   }
 

@@ -1,4 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:smart_sprint/core/api/api_client.dart';
 import 'package:smart_sprint/features/workspace/data/json_mappers.dart';
 import 'package:smart_sprint/features/workspace/data/workspace_repository.dart';
 import 'package:smart_sprint/features/workspace/model/activity.dart';
@@ -25,6 +26,7 @@ class WorkspaceBloc extends Bloc<WorkspaceEvent, WorkspaceState> {
     on<WorkspaceLoaded>(_onLoaded);
     on<OrganizationSwitched>(_onOrganizationSwitched);
     on<OrganizationCreated>(_onOrganizationCreated);
+    on<OrganizationJoined>(_onOrganizationJoined);
     on<OrgMembersUpdated>(_onOrgMembersUpdated);
     on<WorkspaceOpened>(_onWorkspaceOpened);
     on<TaskCreated>(_onTaskCreated);
@@ -62,14 +64,39 @@ class WorkspaceBloc extends Bloc<WorkspaceEvent, WorkspaceState> {
     WorkspaceLoaded event,
     Emitter<WorkspaceState> emit,
   ) async {
-    try {
-      final data = await _repo.bootstrap();
-      emit(_stateFrom(data));
-    } catch (_) {
-      // Surface an empty-but-loaded state so the app is usable; the user can
-      // pull to refresh / retry by reopening.
-      emit(state.copyWith(loaded: true));
+    // Show the loader during a (re)load — e.g. after login — instead of any
+    // stale, empty data from a previous failed attempt.
+    if (state.loaded) emit(state.copyWith(loaded: false));
+
+    // The backend (Render free tier) can cold-start and exceed the request
+    // timeout on the first hit. Retry transient failures (timeouts / 5xx) a few
+    // times with backoff so the data actually loads instead of leaving the user
+    // on an empty dashboard. Auth failures (401/403) are NOT retried — those
+    // mean "log in", handled by the router's auth guard.
+    const maxAttempts = 3;
+    for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        final data = await _repo.bootstrap();
+        emit(_stateFrom(data));
+        return;
+      } on ApiException catch (e) {
+        final retryable =
+            e.statusCode == null || e.statusCode! >= 500; // timeout/5xx
+        if (retryable && attempt < maxAttempts) {
+          await Future.delayed(Duration(seconds: 2 * attempt));
+          continue;
+        }
+        break;
+      } catch (_) {
+        if (attempt < maxAttempts) {
+          await Future.delayed(Duration(seconds: 2 * attempt));
+          continue;
+        }
+        break;
+      }
     }
+    // Gave up — surface an empty-but-loaded state so the app stays usable.
+    emit(state.copyWith(loaded: true));
   }
 
   WorkspaceState _stateFrom(BootstrapData data) {
@@ -177,6 +204,40 @@ class WorkspaceBloc extends Bloc<WorkspaceEvent, WorkspaceState> {
   List<Task> _replaceTask(Task task) =>
       state.allTasks.map((t) => t.id == task.id ? task : t).toList();
 
+  // ── Workspace resolution ────────────────────────────────────────────────────
+
+  /// Resolves the workspace a new task/sprint should live in.
+  ///
+  /// Tasks and sprints must belong to a workspace, but a brand-new account (or a
+  /// freshly created org) may not have one yet. Rather than block the user, we
+  /// transparently provision a default **"My Tasks"** workspace in the current
+  /// org the first time they need one. Returns the resolved id, or `null` if the
+  /// default could not be created (caller should bail).
+  Future<String?> _resolveWorkspaceId(
+    Emitter<WorkspaceState> emit,
+    String preferredId,
+  ) async {
+    // A valid, explicitly chosen workspace wins.
+    if (preferredId.isNotEmpty &&
+        state.allProjects.any((p) => p.id == preferredId)) {
+      return preferredId;
+    }
+    // Otherwise reuse any existing workspace in the current org.
+    final existing = state.projects;
+    if (existing.isNotEmpty) return existing.first.id;
+
+    // None yet — create a sensible default so the user can keep moving.
+    final project = await _repo.createWorkspace(
+      organizationId: state.currentOrganizationId,
+      name: 'My Tasks',
+      description: '',
+      color: 0xFF6C47FF,
+      iconKey: 'check',
+    );
+    emit(state.copyWith(allProjects: [...state.allProjects, project]));
+    return project.id;
+  }
+
   // ── Create (server-authoritative) ───────────────────────────────────────────
 
   Future<void> _onOrganizationCreated(
@@ -194,6 +255,23 @@ class WorkspaceBloc extends Bloc<WorkspaceEvent, WorkspaceState> {
         state.copyWith(
           organizations: [...state.organizations, org],
           currentOrganizationId: org.id,
+        ),
+      );
+    } catch (_) {
+      await _resync(emit);
+    }
+  }
+
+  Future<void> _onOrganizationJoined(
+    OrganizationJoined event,
+    Emitter<WorkspaceState> emit,
+  ) async {
+    try {
+      final data = await _repo.bootstrap();
+      emit(
+        _stateFrom(data).copyWith(
+          currentOrganizationId: event.organizationId,
+          recentWorkspaceIds: state.recentWorkspaceIds,
         ),
       );
     } catch (_) {
@@ -236,8 +314,10 @@ class WorkspaceBloc extends Bloc<WorkspaceEvent, WorkspaceState> {
     Emitter<WorkspaceState> emit,
   ) async {
     try {
+      final projectId = await _resolveWorkspaceId(emit, event.projectId);
+      if (projectId == null) return;
       final sprint = await _repo.createSprint(
-        projectId: event.projectId,
+        projectId: projectId,
         name: event.name,
         goal: event.goal,
         startDate: event.startDate,
@@ -266,8 +346,10 @@ class WorkspaceBloc extends Bloc<WorkspaceEvent, WorkspaceState> {
     Emitter<WorkspaceState> emit,
   ) async {
     try {
+      final projectId = await _resolveWorkspaceId(emit, event.projectId);
+      if (projectId == null) return;
       final task = await _repo.createTask(
-        projectId: event.projectId,
+        projectId: projectId,
         sprintId: event.sprintId,
         title: event.title,
         description: event.description,

@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+
 import 'package:smart_sprint/features/workspace/model/activity.dart';
 import 'package:smart_sprint/features/workspace/model/enums.dart';
 import 'package:smart_sprint/features/workspace/model/organization.dart';
@@ -95,10 +97,24 @@ class WorkspaceState {
 
   // ── Current organization ────────────────────────────────────────────────────
 
-  Organization get currentOrganization => organizations.firstWhere(
-    (o) => o.id == currentOrganizationId,
-    orElse: () => organizations.first,
+  /// Shown only when there are no organizations yet (initial state, or a failed
+  /// bootstrap). Keeps the UI from crashing on `.first` of an empty list.
+  static final Organization _fallbackOrg = Organization(
+    id: '',
+    name: 'Personal',
+    type: OrgType.personal,
+    color: const Color(0xFF6C47FF),
+    icon: Icons.person_rounded,
+    memberIds: const [],
   );
+
+  Organization get currentOrganization {
+    if (organizations.isEmpty) return _fallbackOrg;
+    return organizations.firstWhere(
+      (o) => o.id == currentOrganizationId,
+      orElse: () => organizations.first,
+    );
+  }
 
   bool get isPersonal => currentOrganization.isPersonal;
 
@@ -160,7 +176,21 @@ class WorkspaceState {
     return null;
   }
 
-  TeamMember get currentUser => memberById(currentUserId) ?? allMembers.first;
+  /// True once a real authenticated user's data has loaded. False on the
+  /// initial/empty state and after a failed bootstrap (no session).
+  bool get hasUser => allMembers.isNotEmpty;
+
+  static final TeamMember _fallbackUser = TeamMember(
+    id: 'me',
+    name: 'You',
+    email: '',
+    role: 'Member',
+    avatarColor: const Color(0xFF6C47FF),
+  );
+
+  TeamMember get currentUser =>
+      memberById(currentUserId) ??
+      (allMembers.isNotEmpty ? allMembers.first : _fallbackUser);
 
   List<TeamMember> membersFor(Iterable<String> ids) =>
       ids.map(memberById).whereType<TeamMember>().toList();
