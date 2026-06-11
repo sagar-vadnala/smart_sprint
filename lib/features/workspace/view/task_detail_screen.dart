@@ -7,6 +7,7 @@ import 'package:smart_sprint/core/utils/responsive.dart';
 import 'package:smart_sprint/features/workspace/bloc/workspace_bloc.dart';
 import 'package:smart_sprint/features/workspace/bloc/workspace_event.dart';
 import 'package:smart_sprint/features/workspace/model/activity.dart';
+import 'package:smart_sprint/features/workspace/view/widgets/workspace_badge.dart';
 import 'package:smart_sprint/features/workspace/model/enums.dart';
 import 'package:smart_sprint/features/workspace/model/subtask.dart';
 import 'package:smart_sprint/features/workspace/model/task.dart';
@@ -44,15 +45,7 @@ class TaskDetailScreen extends StatelessWidget {
         title: Row(
           children: [
             if (project != null) ...[
-              Container(
-                width: 22,
-                height: 22,
-                decoration: BoxDecoration(
-                  color: project.color.withValues(alpha: 0.16),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Icon(project.icon, color: project.color, size: 13),
-              ),
+              WorkspaceBadge.project(project, size: 22),
               const SizedBox(width: 8),
               Flexible(
                 child: Text(

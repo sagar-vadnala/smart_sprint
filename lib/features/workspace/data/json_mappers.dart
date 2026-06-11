@@ -38,6 +38,51 @@ String iconKeyFor(IconData icon) {
   return 'folder';
 }
 
+// ─── Workspace icon (shape + glyph/letter) ───────────────────────────────────
+//
+// A workspace icon is stored in one backend string column as `"<shape>|<glyph>"`
+// — e.g. `"circle|rocket"` or `"roundedSquare|letter"`. The sentinel glyph
+// `letter` means "render the first letter of the name" (ClickUp-style avatar).
+// Legacy values without a `|` (e.g. `"rocket"`) decode as a rounded-square glyph,
+// so old data keeps working with no migration.
+
+const String _letterGlyph = 'letter';
+
+/// Decoded form of a workspace icon string.
+typedef WorkspaceIcon = ({IconData icon, IconShape shape, bool useLetter});
+
+WorkspaceIcon workspaceIconFromKey(String? key) {
+  if (key == null || key.isEmpty) {
+    return (
+      icon: Icons.folder_rounded,
+      shape: IconShape.roundedSquare,
+      useLetter: true,
+    );
+  }
+  var shapePart = '';
+  var glyphPart = key;
+  final sep = key.indexOf('|');
+  if (sep >= 0) {
+    shapePart = key.substring(0, sep);
+    glyphPart = key.substring(sep + 1);
+  }
+  final shape = _byName(IconShape.values, shapePart, IconShape.roundedSquare);
+  if (glyphPart == _letterGlyph) {
+    return (icon: Icons.folder_rounded, shape: shape, useLetter: true);
+  }
+  return (icon: iconFromKey(glyphPart), shape: shape, useLetter: false);
+}
+
+/// Encode a chosen glyph/letter + shape into the single backend icon string.
+String workspaceIconKey({
+  required IconData icon,
+  required IconShape shape,
+  required bool useLetter,
+}) {
+  final glyph = useLetter ? _letterGlyph : iconKeyFor(icon);
+  return '${shape.name}|$glyph';
+}
+
 // ─── Colors ───────────────────────────────────────────────────────────────────
 
 Color colorFromInt(int? argb) => Color(argb ?? 0xFF6C47FF);

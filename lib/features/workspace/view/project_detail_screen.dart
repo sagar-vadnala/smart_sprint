@@ -7,6 +7,7 @@ import 'package:smart_sprint/core/utils/formatting.dart';
 import 'package:smart_sprint/features/workspace/bloc/workspace_bloc.dart';
 import 'package:smart_sprint/features/workspace/bloc/workspace_event.dart';
 import 'package:smart_sprint/features/workspace/model/enums.dart';
+import 'package:smart_sprint/features/workspace/view/widgets/workspace_badge.dart';
 import 'package:smart_sprint/features/workspace/model/sprint.dart';
 import 'package:smart_sprint/features/workspace/model/task.dart';
 import 'package:smart_sprint/features/workspace/view/widgets/create_sheets.dart';
@@ -96,15 +97,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
         ),
         title: Row(
           children: [
-            Container(
-              width: 28,
-              height: 28,
-              decoration: BoxDecoration(
-                color: project.color.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(project.icon, color: project.color, size: 16),
-            ),
+            WorkspaceBadge.project(project, size: 28),
             const SizedBox(width: 9),
             Expanded(
               child: Text(

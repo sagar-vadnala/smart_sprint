@@ -135,8 +135,13 @@ class _ShellChrome extends StatelessWidget {
 /// on /home we just switch the cubit — no navigation needed.
 void _switchTab(BuildContext context, int index) {
   context.read<NavCubit>().select(index);
-  final onHome = GoRouterState.of(context).matchedLocation == '/home';
-  if (!onHome) context.go('/home');
+  String loc;
+  try {
+    loc = GoRouterState.of(context).matchedLocation;
+  } catch (_) {
+    loc = '/home';
+  }
+  if (loc != '/home') context.go('/home');
 }
 
 /// The 4 main tabs. Rendered as the /home route's content; an IndexedStack so
@@ -172,6 +177,15 @@ class _SideNav extends StatelessWidget {
     final muted = isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted;
     final badge = state.myOverdueCount + state.myDueTodayCount;
     final sidebar = context.watch<SidebarCubit>().state;
+    // The shell chrome can rebuild for a frame while momentarily outside a route
+    // subtree (e.g. during a redirect), where GoRouterState.of throws. Guard it.
+    String loc;
+    try {
+      loc = GoRouterState.of(context).matchedLocation;
+    } catch (_) {
+      loc = '/home';
+    }
+    final onHome = loc == '/home';
     final glass = (isDark ? AppColors.darkSurface : Colors.white).withValues(
       alpha: isDark ? 0.55 : 0.7,
     );
@@ -287,10 +301,7 @@ class _SideNav extends StatelessWidget {
                             icon: _navDestinations[i].icon,
                             activeIcon: _navDestinations[i].active,
                             label: _navDestinations[i].label,
-                            selected:
-                                index == i &&
-                                GoRouterState.of(context).matchedLocation ==
-                                    '/home',
+                            selected: index == i && onHome,
                             badge: i == 3 ? badge : 0,
                             onTap: () => _switchTab(context, i),
                           ),

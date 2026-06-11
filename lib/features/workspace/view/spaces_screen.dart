@@ -5,6 +5,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:smart_sprint/core/theme/app_colors.dart';
 import 'package:smart_sprint/features/workspace/bloc/workspace_bloc.dart';
 import 'package:smart_sprint/features/workspace/model/enums.dart';
+import 'package:smart_sprint/features/workspace/model/project.dart';
+import 'package:smart_sprint/features/workspace/view/widgets/workspace_badge.dart';
 import 'package:smart_sprint/features/workspace/view/widgets/create_sheets.dart';
 import 'package:smart_sprint/features/workspace/view/widgets/invite_member_sheet.dart';
 import 'package:smart_sprint/features/workspace/view/widgets/member_avatar.dart';
@@ -225,8 +227,8 @@ class SpacesScreen extends StatelessWidget {
                   final tasks = state.tasksForProject(p.id);
                   final done = tasks.where((t) => t.isDone).length;
                   return _ProjectListCard(
+                    project: p,
                     color: p.color,
-                    icon: p.icon,
                     name: p.name,
                     description: p.description,
                     total: tasks.length,
@@ -342,8 +344,8 @@ class _SprintChip extends StatelessWidget {
 }
 
 class _ProjectListCard extends StatelessWidget {
+  final Project project;
   final Color color;
-  final IconData icon;
   final String name;
   final String description;
   final int total;
@@ -352,8 +354,8 @@ class _ProjectListCard extends StatelessWidget {
   final VoidCallback onTap;
 
   const _ProjectListCard({
+    required this.project,
     required this.color,
-    required this.icon,
     required this.name,
     required this.description,
     required this.total,
@@ -387,15 +389,7 @@ class _ProjectListCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.14),
-                    borderRadius: BorderRadius.circular(13),
-                  ),
-                  child: Icon(icon, color: color, size: 22),
-                ),
+                WorkspaceBadge.project(project, size: 44),
                 const SizedBox(width: 13),
                 Expanded(
                   child: Column(

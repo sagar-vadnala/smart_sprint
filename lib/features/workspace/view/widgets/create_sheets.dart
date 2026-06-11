@@ -8,6 +8,8 @@ import 'package:smart_sprint/features/workspace/bloc/workspace_bloc.dart';
 import 'package:smart_sprint/features/workspace/bloc/workspace_event.dart';
 import 'package:smart_sprint/features/workspace/model/enums.dart';
 import 'package:smart_sprint/features/workspace/model/sprint.dart';
+import 'package:smart_sprint/features/workspace/view/widgets/template_gallery.dart';
+import 'package:smart_sprint/features/workspace/view/widgets/workspace_badge.dart';
 import 'member_avatar.dart';
 
 // ─── Public entry points ──────────────────────────────────────────────────────
@@ -329,6 +331,45 @@ class _SelectChip extends StatelessWidget {
   }
 }
 
+/// A 44×44 selectable icon tile used in the Create-a-Space icon picker.
+class _IconChoice extends StatelessWidget {
+  final bool selected;
+  final Color accent;
+  final VoidCallback onTap;
+  final Widget child;
+
+  const _IconChoice({
+    required this.selected,
+    required this.accent,
+    required this.onTap,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 44,
+        height: 44,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: selected
+              ? accent.withValues(alpha: 0.13)
+              : (isDark ? AppColors.darkFill : AppColors.lightFill),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: selected ? accent : Colors.transparent,
+            width: 1.5,
+          ),
+        ),
+        child: child,
+      ),
+    );
+  }
+}
+
 InputDecoration _fieldDecoration(BuildContext context, String hint) {
   return InputDecoration(hintText: hint);
 }
@@ -370,7 +411,7 @@ class _CreateMenu extends StatelessWidget {
           _MenuRow(
             icon: Icons.folder_open_rounded,
             color: const Color(0xFF14B8A6),
-            title: 'New Workspace',
+            title: 'New Space',
             subtitle: 'Spin up a space for a new initiative',
             onTap: () => _openFromMenu(context, showCreateProjectSheet),
           ),
@@ -1035,10 +1076,24 @@ class _CreateProjectSheetState extends State<_CreateProjectSheet> {
 
   Color _color = _palette.first;
   IconData _icon = _icons.first;
+  IconShape _shape = IconShape.roundedSquare;
+  bool _useLetter = true; // ClickUp-style letter avatar by default
   final Set<String> _members = {'me'};
 
   @override
+  void initState() {
+    super.initState();
+    // Keep the letter avatar preview in sync as the name is typed.
+    _nameController.addListener(_onNameChanged);
+  }
+
+  void _onNameChanged() {
+    if (_useLetter) setState(() {});
+  }
+
+  @override
   void dispose() {
+    _nameController.removeListener(_onNameChanged);
     _nameController.dispose();
     _descController.dispose();
     super.dispose();
@@ -1053,13 +1108,21 @@ class _CreateProjectSheetState extends State<_CreateProjectSheet> {
         description: _descController.text.trim(),
         color: _color,
         icon: _icon,
+        shape: _shape,
+        useLetter: _useLetter,
         memberIds: _members.toList(),
       ),
     );
     Navigator.of(context).pop(true);
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(_toast(context, 'Workspace created'));
+    ).showSnackBar(_toast(context, 'Space created'));
+  }
+
+  Future<void> _openTemplates() async {
+    final created = await showTemplateGallery(context);
+    if (!mounted) return;
+    if (created == true) Navigator.of(context).pop(true);
   }
 
   @override
@@ -1067,31 +1130,45 @@ class _CreateProjectSheetState extends State<_CreateProjectSheet> {
     final state = context.watch<WorkspaceBloc>().state;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final textColor = isDark ? AppColors.darkText : AppColors.lightText;
+    final muted = isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted;
     final bg = isDark ? AppColors.darkSurface : AppColors.lightSurface;
 
     return _SheetShell(
-      title: 'New Workspace',
-      subtitle: 'Create a space for a new initiative',
+      title: 'Create a Space',
+      subtitle: 'A Space holds your sprints, lists, and tasks.',
       onBack: widget.fromMenu ? () => Navigator.of(context).pop() : null,
-      footer: _primaryButton(
-        label: 'Create Workspace',
-        enabled: true,
-        onTap: _submit,
+      footer: Row(
+        children: [
+          TextButton.icon(
+            onPressed: _openTemplates,
+            icon: const Icon(Icons.auto_awesome_rounded, size: 17),
+            label: const Text('Use Templates'),
+            style: TextButton.styleFrom(foregroundColor: AppColors.brand),
+          ),
+          const Spacer(),
+          // The theme makes ElevatedButton full-width (minimumSize width =
+          // infinity). That's fine when it's the sole footer child, but inside a
+          // Row it would demand infinite width — so size this one to content.
+          ElevatedButton(
+            onPressed: _submit,
+            style: ElevatedButton.styleFrom(minimumSize: const Size(0, 48)),
+            child: const Text('Continue'),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Preview
+          // Live preview avatar + name
           Row(
             children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: _color.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Icon(_icon, color: _color, size: 24),
+              WorkspaceBadge.preview(
+                name: _nameController.text,
+                color: _color,
+                icon: _icon,
+                shape: _shape,
+                useLetter: _useLetter,
+                size: 48,
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -1104,7 +1181,10 @@ class _CreateProjectSheetState extends State<_CreateProjectSheet> {
                     fontWeight: FontWeight.w600,
                     color: textColor,
                   ),
-                  decoration: _fieldDecoration(context, 'Workspace name'),
+                  decoration: _fieldDecoration(
+                    context,
+                    'e.g. Marketing, Engineering, HR',
+                  ),
                 ),
               ),
             ],
@@ -1159,27 +1239,74 @@ class _CreateProjectSheetState extends State<_CreateProjectSheet> {
           ),
           const SizedBox(height: 20),
 
+          const _Label('SHAPE'),
+          Row(
+            children: IconShape.values.map((sh) {
+              final sel = sh == _shape;
+              return Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: GestureDetector(
+                  onTap: () => setState(() => _shape = sh),
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: sel
+                            ? _color
+                            : (isDark
+                                  ? AppColors.darkBorder
+                                  : AppColors.lightBorder),
+                        width: sel ? 1.6 : 1,
+                      ),
+                    ),
+                    child: Container(
+                      width: 26,
+                      height: 26,
+                      decoration: BoxDecoration(
+                        color: sel ? _color : muted.withValues(alpha: 0.4),
+                        borderRadius: sh.radius(26),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 20),
+
           const _Label('ICON'),
           Wrap(
             spacing: 10,
             runSpacing: 10,
-            children: _icons.map((ic) {
-              final sel = ic == _icon;
-              return GestureDetector(
-                onTap: () => setState(() => _icon = ic),
-                child: Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: sel
-                        ? _color.withValues(alpha: 0.13)
-                        : (isDark ? AppColors.darkFill : AppColors.lightFill),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: sel ? _color : Colors.transparent,
-                      width: 1.5,
-                    ),
+            children: [
+              // First option: the letter avatar (default).
+              _IconChoice(
+                selected: _useLetter,
+                accent: _color,
+                onTap: () => setState(() => _useLetter = true),
+                child: Text(
+                  'Aa',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: _useLetter
+                        ? _color
+                        : (isDark
+                              ? AppColors.darkTextMuted
+                              : AppColors.lightTextMuted),
                   ),
+                ),
+              ),
+              ..._icons.map((ic) {
+                final sel = !_useLetter && ic == _icon;
+                return _IconChoice(
+                  selected: sel,
+                  accent: _color,
+                  onTap: () => setState(() {
+                    _useLetter = false;
+                    _icon = ic;
+                  }),
                   child: Icon(
                     ic,
                     size: 20,
@@ -1189,9 +1316,9 @@ class _CreateProjectSheetState extends State<_CreateProjectSheet> {
                               ? AppColors.darkTextMuted
                               : AppColors.lightTextMuted),
                   ),
-                ),
-              );
-            }).toList(),
+                );
+              }),
+            ],
           ),
           // Team selection only applies to team workspaces.
           if (!state.isPersonal) ...[

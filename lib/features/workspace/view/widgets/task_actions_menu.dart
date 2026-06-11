@@ -7,6 +7,7 @@ import 'package:smart_sprint/core/utils/adaptive_sheet.dart';
 import 'package:smart_sprint/features/workspace/bloc/workspace_bloc.dart';
 import 'package:smart_sprint/features/workspace/bloc/workspace_event.dart';
 import 'package:smart_sprint/features/workspace/model/task.dart';
+import 'package:smart_sprint/features/workspace/view/widgets/workspace_badge.dart';
 
 /// Three-dots task action menu (Copy link / Move to workspace / Move to sprint
 /// / Duplicate / Delete). Lives next to the task title in the detail screen
@@ -273,15 +274,7 @@ Future<bool?> _pickWorkspace(BuildContext context, Task task, WorkspaceBloc bloc
       showBack: true,
       items: state.projects.map((p) {
         return _PickerItem(
-          leading: Container(
-            width: 28,
-            height: 28,
-            decoration: BoxDecoration(
-              color: p.color.withValues(alpha: 0.18),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(p.icon, size: 15, color: p.color),
-          ),
+          leading: WorkspaceBadge.project(p, size: 28),
           label: p.name,
           selected: p.id == task.projectId,
           onTap: () {

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:smart_sprint/features/workspace/model/enums.dart';
 import 'package:smart_sprint/features/workspace/model/organization.dart';
+import 'package:smart_sprint/features/workspace/model/project.dart';
+import 'package:smart_sprint/features/workspace/model/sprint.dart';
+import 'package:smart_sprint/features/workspace/model/task.dart';
 import 'package:smart_sprint/features/workspace/model/team_member.dart';
 
 sealed class WorkspaceEvent {}
@@ -233,11 +236,28 @@ class SprintCreated extends WorkspaceEvent {
   });
 }
 
+/// Merge a fully-built templated space (workspace + sprints + tasks) into state.
+/// The network creation already happened in the UI layer (so it could show a
+/// build/loading animation); this just folds the results in.
+class SpaceImported extends WorkspaceEvent {
+  final Project project;
+  final List<Sprint> sprints;
+  final List<Task> tasks;
+
+  SpaceImported({
+    required this.project,
+    required this.sprints,
+    required this.tasks,
+  });
+}
+
 class ProjectCreated extends WorkspaceEvent {
   final String name;
   final String description;
   final Color color;
   final IconData icon;
+  final IconShape shape;
+  final bool useLetter;
   final List<String> memberIds;
 
   ProjectCreated({
@@ -246,5 +266,7 @@ class ProjectCreated extends WorkspaceEvent {
     required this.color,
     required this.icon,
     required this.memberIds,
+    this.shape = IconShape.roundedSquare,
+    this.useLetter = false,
   });
 }

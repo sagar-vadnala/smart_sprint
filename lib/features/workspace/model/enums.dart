@@ -70,6 +70,26 @@ enum SprintStatus {
   };
 }
 
+/// The silhouette of a workspace/space icon badge. Stored alongside the glyph
+/// in the workspace's icon string (see `workspaceIconKey`).
+enum IconShape {
+  roundedSquare,
+  circle,
+  square;
+
+  String get label => switch (this) {
+    IconShape.roundedSquare => 'Rounded',
+    IconShape.circle => 'Circle',
+    IconShape.square => 'Square',
+  };
+
+  BorderRadius radius(double size) => switch (this) {
+    IconShape.roundedSquare => BorderRadius.circular(size * 0.30),
+    IconShape.circle => BorderRadius.circular(size),
+    IconShape.square => BorderRadius.circular(size * 0.12),
+  };
+}
+
 enum ActivityKind {
   taskCreated,
   taskCompleted,

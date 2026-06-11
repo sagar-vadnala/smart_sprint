@@ -3,6 +3,7 @@ import 'package:smart_sprint/features/workspace/model/activity.dart';
 import 'package:smart_sprint/features/workspace/model/enums.dart';
 import 'package:smart_sprint/features/workspace/model/organization.dart';
 import 'package:smart_sprint/features/workspace/model/project.dart';
+import 'package:smart_sprint/features/workspace/model/space_template.dart';
 import 'package:smart_sprint/features/workspace/model/sprint.dart';
 import 'package:smart_sprint/features/workspace/model/task.dart';
 import 'package:smart_sprint/features/workspace/model/team_member.dart';
@@ -25,6 +26,20 @@ class BootstrapData {
     required this.sprints,
     required this.tasks,
     required this.activities,
+  });
+}
+
+/// Everything created when a space is generated from a template, so the bloc
+/// can merge it into state in one shot.
+class TemplateBuildResult {
+  final Project project;
+  final List<Sprint> sprints;
+  final List<Task> tasks;
+
+  const TemplateBuildResult({
+    required this.project,
+    required this.sprints,
+    required this.tasks,
   });
 }
 
@@ -178,6 +193,70 @@ class WorkspaceRepository {
       },
     );
     return Project.fromJson(json);
+  }
+
+  /// Creates a workspace and, for non-blank templates, all of its sprints and
+  /// tasks — issuing the calls sequentially so the server builds a real,
+  /// fully-populated space (this is what makes the create take a few seconds,
+  /// just like ClickUp). Returns everything created so the bloc can merge it
+  /// into state without a full reload.
+  Future<TemplateBuildResult> buildTemplateSpace({
+    required String organizationId,
+    required String name,
+    required int color,
+    required String iconKey,
+    required SpaceTemplate template,
+  }) async {
+    final now = DateTime.now();
+
+    final project = await createWorkspace(
+      organizationId: organizationId,
+      name: name,
+      description: template.isBlank ? '' : template.tagline,
+      color: color,
+      iconKey: iconKey,
+    );
+
+    final sprints = <Sprint>[];
+    for (final ts in template.sprints) {
+      final start = now.add(Duration(days: ts.startOffsetDays));
+      sprints.add(
+        await createSprint(
+          projectId: project.id,
+          name: ts.name,
+          goal: ts.goal,
+          startDate: start,
+          endDate: start.add(Duration(days: ts.durationDays)),
+        ),
+      );
+    }
+
+    final tasks = <Task>[];
+    for (final tt in template.tasks) {
+      final sprintId = tt.sprintIndex != null && tt.sprintIndex! < sprints.length
+          ? sprints[tt.sprintIndex!].id
+          : null;
+      tasks.add(
+        await createTask(
+          projectId: project.id,
+          sprintId: sprintId,
+          title: tt.title,
+          description: tt.description,
+          status: tt.status,
+          priority: tt.priority,
+          assigneeIds: const [],
+          dueDate: tt.dueInDays == null
+              ? null
+              : now.add(Duration(days: tt.dueInDays!)),
+        ),
+      );
+    }
+
+    return TemplateBuildResult(
+      project: project,
+      sprints: sprints,
+      tasks: tasks,
+    );
   }
 
   // ── Sprints ───────────────────────────────────────────────────────────────

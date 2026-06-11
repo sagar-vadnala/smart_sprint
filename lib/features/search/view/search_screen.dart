@@ -6,6 +6,7 @@ import 'package:smart_sprint/core/theme/app_colors.dart';
 import 'package:smart_sprint/core/utils/formatting.dart';
 import 'package:smart_sprint/features/workspace/bloc/workspace_bloc.dart';
 import 'package:smart_sprint/features/workspace/model/project.dart';
+import 'package:smart_sprint/features/workspace/view/widgets/workspace_badge.dart';
 import 'package:smart_sprint/features/workspace/model/task.dart';
 import 'package:smart_sprint/features/workspace/view/widgets/status_picker.dart';
 
@@ -235,15 +236,7 @@ class _WorkspaceResult extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
         child: Row(
           children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: project.color.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(project.icon, color: project.color, size: 19),
-            ),
+            WorkspaceBadge.project(project, size: 36),
             const SizedBox(width: 12),
             Expanded(
               child: Text(

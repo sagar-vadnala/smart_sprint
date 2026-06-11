@@ -52,6 +52,7 @@ class WorkspaceBloc extends Bloc<WorkspaceEvent, WorkspaceState> {
     on<SubTaskDeleted>(_onSubTaskDeleted);
     on<SprintCreated>(_onSprintCreated);
     on<ProjectCreated>(_onProjectCreated);
+    on<SpaceImported>(_onSpaceImported);
   }
 
   int _seq = 0;
@@ -289,7 +290,11 @@ class WorkspaceBloc extends Bloc<WorkspaceEvent, WorkspaceState> {
         name: event.name,
         description: event.description,
         color: colorToInt(event.color),
-        iconKey: iconKeyFor(event.icon),
+        iconKey: workspaceIconKey(
+          icon: event.icon,
+          shape: event.shape,
+          useLetter: event.useLetter,
+        ),
       );
       emit(
         state.copyWith(
@@ -307,6 +312,24 @@ class WorkspaceBloc extends Bloc<WorkspaceEvent, WorkspaceState> {
     } catch (_) {
       await _resync(emit);
     }
+  }
+
+  void _onSpaceImported(SpaceImported event, Emitter<WorkspaceState> emit) {
+    emit(
+      state.copyWith(
+        allProjects: [...state.allProjects, event.project],
+        allSprints: [...state.allSprints, ...event.sprints],
+        allTasks: [...state.allTasks, ...event.tasks],
+        allActivities: _prepend(
+          _activity(
+            ActivityKind.projectCreated,
+            'created workspace',
+            taskTitle: event.project.name,
+            projectId: event.project.id,
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _onSprintCreated(

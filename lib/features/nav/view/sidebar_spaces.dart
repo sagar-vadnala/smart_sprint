@@ -8,6 +8,7 @@ import 'package:smart_sprint/features/nav/cubit/sidebar_cubit.dart';
 import 'package:smart_sprint/features/workspace/bloc/workspace_bloc.dart';
 import 'package:smart_sprint/features/workspace/model/project.dart';
 import 'package:smart_sprint/features/workspace/view/widgets/create_sheets.dart';
+import 'package:smart_sprint/features/workspace/view/widgets/workspace_badge.dart';
 
 /// The "Spaces" tree shown in the side rail: every workspace in the current
 /// organization, expandable to its sprints, with favourites pinned on top.
@@ -136,15 +137,7 @@ class _SpaceTileState extends State<_SpaceTile> {
                 ),
               ),
               // Coloured space icon
-              Container(
-                width: 24,
-                height: 24,
-                decoration: BoxDecoration(
-                  color: w.color.withValues(alpha: 0.18),
-                  borderRadius: BorderRadius.circular(7),
-                ),
-                child: Icon(w.icon, size: 14, color: w.color),
-              ),
+              WorkspaceBadge.project(w, size: 24),
               const SizedBox(width: 9),
               Expanded(
                 child: Text(
